@@ -23,14 +23,10 @@
 #define	evRfLs_SendRF_Event	         0x0100
 #define	evFindSensor_CountEvent	     0x0200
 #define	evRfLsCMD1_Event	         0x0400
-//#define	evRfLsCMD2_Event	         0x0800
+#define	evRfLsCMD2_Event	         0x0800
 #define	evCheckCount_Event	         0x1000
 #define	evFifoCheck_Event	         0x2000
 #define	evReboot_Event	             0x4000
-#define	evTest_Event	             0x8000
-
-#define	evCMDR_Event	         0x0800
-
 void Eventhandle(void);
 void sendEvent(uint16);
 
@@ -42,7 +38,7 @@ typedef enum
 	Timer4Run
 }TimerState_t;
 extern bool TestCount;
-extern uint8 CMDR_Index;
+
 extern bool SendLsCmdData;
 extern TimerState_t Timer4NowState;
 extern uint16 gPairingPeriodCounter;

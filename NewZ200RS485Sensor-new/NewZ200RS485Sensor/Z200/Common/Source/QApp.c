@@ -206,10 +206,6 @@ void initCommands(void){
 	//registerCommand(29, "Test", processTest);
 	registerCommand(29, "CMD2", processCMD2);
 	registerCommand(30, "PAIR", processPAIR);
-	registerCommand(31, "CMDR", processCMDR);
-
-
-
 }
 
 /////ATCommand

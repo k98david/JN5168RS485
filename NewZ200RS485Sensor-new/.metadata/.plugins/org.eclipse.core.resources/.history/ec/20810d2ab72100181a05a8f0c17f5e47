@@ -69,7 +69,7 @@ bool RS485CMD_Count_Flag=FALSE;
 bool RS485CMD_Count_Timer_Flag=FALSE;
 uint8_t RS485CMD_Count=0;
 bool PSW_CMD_flag=FALSE;
-SensorCMDTable_t SensorCMD_Table;
+SensorCMDTable_t SensorCMD_Table[SensorCMDNumber];
 //SensorCMDTable_t SensorCMDTest_Table[1];
 uint8 StarlsList_Number=0;
 uint8 EndlsList_Number=0;
@@ -1068,6 +1068,17 @@ void printCmd(uint8 *cmd,uint8 len){
 void readEEpromSensor(void){
 	uint8 x=0,y=0,z=0;
 
+
+	for(x=0;x<10;x++){
+		iAHI_ReadDataFromEEPROMsegment(x+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table.sensorCmdTable_Num[x],64);
+		for(y=0;y<4;y++){
+		    DBG_vPrintf(1, "EESensorCMD_Table[%d].sensorCmdTable_Num[%d].sensorCmdLen=%d\r\n",x,y, SensorCMD_Table[x].sensorCmdTable_Num[y].sensorCmdLen);
+			for(z=0;z<15;z++){
+        	    DBG_vPrintf(1, "EESensorCMD_Table[%d].sensorCmdTable_Num[%d].sensorCmd[%d]=%02x \r\n", x,y,z,SensorCMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]);
+			}
+		}
+	}
+	/*
 	for(x=0;x<10;x++){
 		iAHI_ReadDataFromEEPROMsegment(x+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table.sensorCmdTable_Num[x],64);
 
@@ -1080,7 +1091,7 @@ void readEEpromSensor(void){
 			DBG_vPrintf(Timer_Debug, "SensorCMDTest_Table.sensorCmdTable_Num[%d].sensorCmd[%d]=%x \r\n",x,y ,SensorCMD_Table.sensorCmdTable_Num[x].sensorCmd[y]);
 		}
 	}
-
+*/
 	for(x=0;x<MaxSensorNumber;x++){
 		iAHI_ReadDataFromEEPROMsegment(x+EEpromAddress,0,&sensorList[x],64);
 

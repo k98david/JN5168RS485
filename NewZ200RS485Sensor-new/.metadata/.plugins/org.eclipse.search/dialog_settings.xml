@@ -3,8 +3,8 @@
 	<section name="DialogBounds_SearchDialog">
 		<item value="691" key="DIALOG_WIDTH"/>
 		<item value="183" key="DIALOG_Y_ORIGIN"/>
-		<item value="512" key="DIALOG_HEIGHT"/>
 		<item value="518" key="DIALOG_X_ORIGIN"/>
+		<item value="512" key="DIALOG_HEIGHT"/>
 		<item value="1|Microsoft JhengHei UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft JhengHei UI" key="DIALOG_FONT_NAME"/>
 	</section>
 	<section name="Search">
@@ -17,11 +17,11 @@
 			<item value="org.eclipse.cdt.ui.pdomSearchPage"/>
 		</list>
 	</section>
-	<section name="org.eclipse.cdt.ui.pdomSearchViewPage">
-		<item value="true" key="showEnclosingDefinitions"/>
-	</section>
 	<section name="SearchDialog">
 		<item value="org.eclipse.cdt.ui.pdomSearchPage" key="PREVIOUS_PAGE"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.pdomSearchViewPage">
+		<item value="true" key="showEnclosingDefinitions"/>
 	</section>
 	<section name="TextSearchPage">
 		<item value="false" key="CASE_SENSITIVE"/>

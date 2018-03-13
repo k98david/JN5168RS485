@@ -359,17 +359,37 @@ PRIVATE void CRD_vMain(void)
 		}
 
     }else if (gConfigData.settings.deviceType == dtOne2OneSlave){
-    //	vAHI_WatchdogStart(8);   //1's
+    	vAHI_WatchdogStart(8);   //1's
 
+
+    //	printMsg("ATX=@One2One Slave ");
+    //	printMsg(Z200_Version);
      	if (gConfigData.settings.targetAddr!=0xFFFF){
         	sendEvent(evPolling_EnableEvent);
-
+    		//ED_vReqAssociate();
+    	    //MAC_vPibSetShortAddr(NODE_sData.pvMac, NODE_sData.u16Address);
+    		/* Set pan id in pib */
+    	    //MAC_vPibSetPanId(NODE_sData.pvMac, NODE_sData.u16PanId);
+    	    /* Enable receiver to be on when idle */
+    	    //MAC_vPibSetRxOnWhenIdle(NODE_sData.pvMac, TRUE, FALSE);
+    	    //NODE_sData.psPib->bAssociationPermit = 0;
+            //NODE_sData.eNwkState = NODE_NWKSTATE_UP;
+    		//CRD_vReqStartCoordinator();
     		ED_vReqStartEnddevice();
-
+    		//onetooneSlave_Flag=TRUE;
+        	//ED_vReqActiveScan();//Postponse started message until association response received.
         	if (gConfigData.settings.verbose){
         		wuart_vPrintf(1, "ATX=Starting as One2One Slave on channel 0x%x.\r\n",	NODE_sData.u8Channel);
     			wuart_vPrintf(1, "ATX=Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+    			//printMsg("Ready to send and receive data.\r\n");
+
     			PowerUpData=TRUE;
+/*
+            	vAHI_TimerEnable(E_AHI_TIMER_4, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+            	vAHI_Timer4RegisterCallback(timer4_Polling_Callback);
+            	vAHI_TimerStartRepeat(E_AHI_TIMER_4, 0,125);   //0.5's
+            	*/
+
         	}
     	}else{
     		//ED_vReqActiveScan();//Postponse started message until association response received.
@@ -654,6 +674,7 @@ PRIVATE void CRD_vInit(void)
 	//vAHI_Timer4RegisterCallback(timer4_Polling_Callback);
 	gSerialMode = CommandMode_c;
 
+
 	//sendEvent(evPolling_EnableEvent);
 
 }
@@ -709,9 +730,8 @@ PRIVATE void CRD_vMlmeDcfmInd_Master(MAC_MlmeDcfmInd_s *psMlmeInd)
 					   }else{
 						   //Do not response to Association request
 					   }
-#if  Debug
-					   CRD_vIndAssociate(psMlmeInd);
-#endif
+
+					   //CRD_vIndAssociate(psMlmeInd);
 				   }else{
 					   CRD_vIndAssociate(psMlmeInd);
 				   }

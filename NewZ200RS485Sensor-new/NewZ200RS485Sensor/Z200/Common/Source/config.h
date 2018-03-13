@@ -57,8 +57,8 @@ extern "C" {
 //#define hardware Z200USB
 #define hardware Z200485
 //#define SendTestUse 0
-#define Gatway 0
-#define Debug 1
+#define Gatway 1
+#define Debug 0
 #define Timer_Debug 1
 #if  hardware == Z200485
 	#define LED1pin	4  //upper green light

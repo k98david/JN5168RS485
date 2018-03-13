@@ -458,7 +458,31 @@ void Eventhandle(void){
 		gEvents &=~ evFifoCheck_Event;
     }else if(gEvents & evReboot_Event){
     	vAHI_SwReset();
+    }else if(gEvents & evTest_Event){
+    	uint8_t x=0,y=0,z=0;
+
+
+    	for(x=0;x<10;x++){
+    		for(y=0;y<4;y++){
+    			SensorCMD_Table[x].sensorCmdTable_Num[y].sensorCmdLen=15;
+    			for(z=0;z<15;z++){
+        			SensorCMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]=0+z+x;
+            	    DBG_vPrintf(1, "SensorCMD_Table[%d].sensorCmdTable_Num[%d].sensorCmd[%d]=%02x \r\n", x,y,z,SensorCMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]);
+
+    			}
+    		}
+    		totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+    		iAHI_EraseEEPROMsegment(x+EEpromCMDTable+EEpromAddress);
+    		iAHI_WriteDataIntoEEPROMsegment(x+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table.sensorCmdTable_Num[x],64);
+
+    	}
+
+		gEvents &=~ evTest_Event;
     }
+
+
+
+
 
 
 

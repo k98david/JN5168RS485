@@ -35,12 +35,7 @@ typedef enum
 	XMT_E2,
 	XMT_E3
 }SensorType_t;
-/*
-typedef struct{
-	uint8_t sensorDataLen;
-	uint8_t sensorData[15];
-}SensorData_t;
-*/
+
 typedef struct{
 	uint8_t sensorCmdLen;
 	uint8_t sensorCmd[15];
@@ -60,18 +55,11 @@ typedef struct{
 }SensorInfo_t;
 
 typedef struct{
-	//uint8_t data[64];
 	SensorInfo_t info;
-	/*
-	SensorData_t sensorDataNum[MaxSensorNumber];
-	uint8_t dataHeaderIndex;
-	uint8_t dataTailIndex;
-	*/
-
 }SensorLog_t;
 
 typedef struct{
-	SensorCMD_t sensorCmdTable_Num[SensorCMDNumber];
+	SensorCMD_t sensorCmdTable_Num[4];
 }SensorCMDTable_t;
 
 

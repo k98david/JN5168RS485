@@ -5,7 +5,7 @@
 
 #define BufferLen 150
 #define CommandLength 80
-#define MAX_CMD_NUMBER 40
+#define MAX_CMD_NUMBER 31
 
 #define ModeBusArrLen 150
 //=== Serial Data Working Mode

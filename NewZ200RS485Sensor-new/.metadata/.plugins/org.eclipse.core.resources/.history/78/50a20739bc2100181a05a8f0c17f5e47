@@ -458,7 +458,98 @@ void Eventhandle(void){
 		gEvents &=~ evFifoCheck_Event;
     }else if(gEvents & evReboot_Event){
     	vAHI_SwReset();
+		gEvents &=~ evReboot_Event;
+    }else if(gEvents & evTest_Event){
+        uint8_t x=0;
+        uint8_t y=0,z=0;
+        uint8 CMD_Number=0,EEGroup=0,EEArrGroup=0;
+        uint16 ASCII=0;
+        /*
+        Temp=strtok(&cmdStr[2], "\r\n");
+
+        DBG_vPrintf(Debug, "Temp=%s\r\n", Temp);
+
+        Len=strlen(Temp);
+        ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    	CMD_Number=convertASCII2Hex(&ASCII);
+    	Len=Len-5;
+    	DBG_vPrintf(Debug, "Len=%d CMD_Number=%d\r\n", Len,CMD_Number);
+    	*/
+
+/*
+    	for(x=0;x<10;x++){
+    		for(y=0;y<4;y++){
+    			SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmdLen=15;
+    			for(z=0;z<15;z++){
+    				SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]=0+z+x;
+            	    DBG_vPrintf(1, "SensorEECMD_Table[%d].sensorCmdTable_Num[%d].sensorCmd[%d]=%02x \r\n", x,y,z,SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]);
+    			}
+    		}
+    	}
+    	*/
+    	CMD_Number=7;
+    	Len=15;
+
+    	EEGroup=CMD_Number/4;
+    	EEArrGroup=CMD_Number%4;
+
+    	DBG_vPrintf(Debug, "Len=%d CMD_Number=%d\r\n", Len,CMD_Number);
+    	/*
+        for(x=0;x<=Len+5;x+=2){
+        	SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmd[y++]=convertASCII2Hex(Temp+x);
+        }
+*/
+        for(x=0;x<15;x++){
+        	SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmd[x]=x;
+        }
+
+
+        SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmdLen=Len;
+
+        DBG_vPrintf(Debug, "SensorCMD_Table.[EEGroup].Len=%d\r\n", SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmdLen);
+
+    	DBG_vPrintf(Debug, "sensorList CMD\r\n");
+    	for(y=0;y<SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmdLen;y++){
+    		DBG_vPrintf(Debug, "%x", SensorEECMD_Table[EEGroup].sensorCmdTable_Num[EEArrGroup].sensorCmd[y]);
+    	}
+
+    	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+    	iAHI_EraseEEPROMsegment(EEGroup+EEpromCMDTable+EEpromAddress);
+    	iAHI_WriteDataIntoEEPROMsegment(EEGroup+EEpromCMDTable+EEpromAddress,0,&SensorEECMD_Table[EEGroup],64);
+    	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+
+
+
+
+
+
+
+
+    	/*
+    	uint8_t x=0,y=0,z=0;
+
+
+    	for(x=0;x<10;x++){
+    		for(y=0;y<4;y++){
+    			SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmdLen=15;
+    			for(z=0;z<15;z++){
+    				SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]=0+z+x;
+            	    DBG_vPrintf(1, "SensorEECMD_Table[%d].sensorCmdTable_Num[%d].sensorCmd[%d]=%02x \r\n", x,y,z,SensorEECMD_Table[x].sensorCmdTable_Num[y].sensorCmd[z]);
+
+    			}
+    		}
+    		totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+    		iAHI_EraseEEPROMsegment(x+EEpromCMDTable+EEpromAddress);
+    		iAHI_WriteDataIntoEEPROMsegment(x+EEpromCMDTable+EEpromAddress,0,&SensorEECMD_Table[x],64);
+
+    	}
+*/
+		gEvents &=~ evTest_Event;
     }
+
+
+
+
 
 
 
