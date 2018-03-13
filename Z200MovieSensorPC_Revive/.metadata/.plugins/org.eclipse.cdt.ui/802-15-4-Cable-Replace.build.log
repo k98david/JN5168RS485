@@ -1,0 +1,19 @@
+15:32:20 **** Build of configuration Coordinator_JN5168 for project 802-15-4-Cable-Replace ****
+make clean JENNIC_CHIP=JN5168 all 
+Makefile:143: /c/Users/K98David/Documents/工作區/sdk/Chip/Common/Build/config.mk: No such file or directory
+Makefile:144: /c/Users/K98David/Documents/工作區/sdk/Platform/Common/Build/Config.mk: No such file or directory
+rm -f QApp.o
+Makefile:145: /c/Users/K98David/Documents/工作區/sdk/Stack/Common/Build/Config.mk: No such file or directory
+rm -f AppQueueApi.o
+rm -f wuart.o
+rm -f uart.o
+rm -f rnd.o
+rm -f queue.o
+rm -f node.o
+rm -f lcd.o
+rm -f dbg.o
+rm -f crd_coordinator.o
+make: *** No rule to make target `/c/Users/K98David/Documents/工作區/sdk/Stack/Common/Build/Config.mk'.  Stop.
+
+15:32:21 Build Finished (took 304ms)
+
