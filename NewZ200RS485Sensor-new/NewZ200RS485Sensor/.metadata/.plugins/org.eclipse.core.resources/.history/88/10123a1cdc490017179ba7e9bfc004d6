@@ -1,0 +1,79 @@
+/*
+ * Qsensor.h
+ *
+ *  Created on: 2017/5/25
+ *      Author: K98David
+ */
+
+#ifndef QSENSOR_H_
+#define QSENSOR_H_
+
+#define MaxValueNumber 10
+#define MaxDataNumber 50
+#define MaxSensorNumber	4
+
+#define EEpromAddress 1
+typedef enum
+{
+	DisableMode_c = 0,
+	EnableMode_c
+}SensorMode_t;
+
+
+typedef enum
+{
+	XMT_288FC = 1,
+	XMT_E,
+	XMT_E2,
+	XMT_E3
+}SensorType_t;
+
+typedef struct{
+	uint8_t sensorData[10];
+}SensorData_t;
+
+typedef struct{
+	uint8_t sensorCmd[10];
+}SensorCMD_t;
+
+
+typedef struct{
+	uint8_t mask;
+	SensorType_t sensorType;
+	char sensorAddress;
+	SensorCMD_t sensorCmdNum[20];
+	uint8_t CmdCount;
+	bool Enable;
+}SensorInfo_t;
+
+typedef union{
+	//uint8_t data[64];
+	SensorInfo_t info;
+	SensorData_t sensorDataNum[MaxDataNumber];
+	uint8_t dataHeaderIndex;
+	uint8_t dataTailIndex;
+}SensorLog_t;
+
+typedef struct{
+	uint8_t oldIndex;
+}SensorOldIndex_t;
+
+void calc_crc(unsigned char *buf,int len);
+void printCmd(uint8 * msg,uint8 len);
+void timer1_SensorCMD_Callback(uint32 u32Device, uint32 u32ItemBitmap);
+void timer1_TSensorCMD_Callback(uint32 u32Device, uint32 u32ItemBitmap);
+void timer4_SendRF_Callback(uint32 u32Device, uint32 u32ItemBitmap);
+uint8 processSensorE(char * cmdStr);
+uint8 processSensorD(char * cmdStr);
+uint8 processRfADD(char * cmdStr);
+uint8 processRfDEL(char * cmdStr);
+uint8 processRfEnable(char * cmdStr); //change application repeat send times
+uint8 processRfDisable(char * cmdStr);
+void readEEpromSensor(void);
+extern SensorMode_t sensor_mode;
+extern uint8 sensor_RF_Packet[100];
+extern uint8 EEPROMDataLength;
+extern uint8 totalSegment;
+extern SensorLog_t sensorList[MaxSensorNumber];
+extern SensorLog_t sensorListTest[MaxSensorNumber];
+#endif /* QSENSOR_H_ */

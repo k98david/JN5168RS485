@@ -1,0 +1,1202 @@
+/****************************************************************************/
+/*!
+ *\MODULE              Coordinator (Application Layer)
+ *
+ *\COMPONENT           $HeadURL: https://www.collabnet.nxp.com/svn/lprf_apps/Application_Notes/JN-AN-1069-IEEE-802.15.4-Serial-Cable-Replacement/Tags/Release_3v0-Public/Coordinator/Source/crd_coordinator.c $
+ *
+ *\VERSION			   $Revision: 16555 $
+ *
+ *\REVISION            $Id: crd_coordinator.c 16555 2015-11-20 12:14:37Z nxa04494 $
+ *
+ *\DATED               $Date: 2015-11-20 12:14:37 +0000 (Fri, 20 Nov 2015) $
+ *
+ *\AUTHOR              $Author: nxa04494 $
+ *
+ *\DESCRIPTION         Coordinator (Application Layer) - implementation.
+ */
+/*****************************************************************************
+ *
+ * This software is owned by Jennic and/or its supplier and is protected
+ * under applicable copyright laws. All rights are reserved. We grant You,
+ * and any third parties, a license to use this software solely and
+ * exclusively on Jennic products. You, and any third parties must reproduce
+ * the copyright and warranty notice and any other legend of ownership on each
+ * copy or partial copy of the software.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS". JENNIC MAKES NO WARRANTIES, WHETHER
+ * EXPRESS, IMPLIED OR STATUTORY, INCLUDING, BUT NOT LIMITED TO, IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE,
+ * ACCURACY OR LACK OF NEGLIGENCE. JENNIC SHALL NOT, IN ANY CIRCUMSTANCES,
+ * BE LIABLE FOR ANY DAMAGES, INCLUDING, BUT NOT LIMITED TO, SPECIAL,
+ * INCIDENTAL OR CONSEQUENTIAL DAMAGES FOR ANY REASON WHATSOEVER.
+ *
+ * Copyright Jennic Ltd 2009. All rights reserved
+ *
+ ****************************************************************************/
+
+/****************************************************************************/
+/***        Include files                                                 ***/
+/****************************************************************************/
+/* Jennic defines */
+#include <jendefs.h>
+#include <AppHardwareApi.h>
+#include <AppHardwareApi_JN516x.h>
+#include <AppApi_JN516x.h>
+#include <AppQueueApi.h>
+#include <LedControl.h>
+#include <mac_sap.h>
+#include <mac_pib.h>
+/* Common defines */
+#include "config.h"
+#include "dbg.h"
+#include "node.h"
+#include "rnd.h"
+#include "wuart.h"
+#include "QApp.h"
+#include "enddevice.h"
+#include "Qsensor.h"
+#ifdef SWDEBUG
+    #include <gdb.h>
+#endif
+/****************************************************************************/
+/***        Macro Definitions                                             ***/
+/****************************************************************************/
+#define CRD_TRACE TRUE
+/****************************************************************************/
+/***        Type Definitions                                              ***/
+/****************************************************************************/
+/* Data type for storing data related to all end devices that have associated */
+typedef struct
+{
+    uint16 u16ShortAddr;
+    uint32 u32ExtAddrL;
+    uint32 u32ExtAddrH;
+} CRD_tsChild;
+
+typedef struct
+{
+    /* Data related to associated end devices */
+    uint16          u16Children;
+    CRD_tsChild      asChild[MAX_CHILDREN];
+} CRD_tsData;
+
+/****************************************************************************/
+/***        Local Function Prototypes                                     ***/
+/****************************************************************************/
+PRIVATE void CRD_vMain(void);
+PRIVATE void CRD_vInit(void);
+PRIVATE void CRD_vMlmeDcfmInd_Master(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void ED_vMlmeDcfmInd_Slave(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void CRD_vMcpsDcfmInd(MAC_McpsDcfmInd_s *psMcpsInd);
+PRIVATE void CRD_vHwInd(AppQApiHwInd_s *psAHI_Ind);
+PRIVATE void CRD_vIndData(MAC_McpsDcfmInd_s *psMcpsInd);
+PRIVATE void CRD_vDcfmData(MAC_McpsDcfmInd_s *psMcpsInd);
+PRIVATE void CRD_vReqEnergyScan(void);
+PRIVATE void CRD_vDcfmScanEnergy(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void CRD_vReqStartCoordinator(void);
+PRIVATE void CRD_vIndAssociate(MAC_MlmeDcfmInd_s *psMlmeInd);
+void initCommands(void);
+/****************************************************************************/
+/***        Exported Variables                                            ***/
+/****************************************************************************/
+
+/****************************************************************************/
+/***        Local Variables                                               ***/
+/****************************************************************************/
+PRIVATE CRD_tsData CRD_sData;
+uint8 EEPROMSegmentDataLength;
+uint8 gWorkingMode = wmNormalMode_c;
+/****************************************************************************/
+/***        Exported Functions                                            ***/
+/****************************************************************************/
+
+/****************************************************************************
+ *
+ * NAME: AppColdStart
+ *
+ * DESCRIPTION:
+ * Entry point for application from boot loader. Initialises system and runs
+ * main loop.
+ *
+ * RETURNS:
+ * Never returns.
+ *
+ ****************************************************************************/
+PUBLIC void AppColdStart(void)
+{
+	/* Disable watchdog if enabled by default */
+	#ifdef WATCHDOG_ENABLED
+		vAHI_WatchdogStop();
+	#endif
+
+	#ifdef SWDEBUG
+       HAL_GDB_INIT();
+       HAL_BREAKPOINT();
+	#endif
+
+	/* Perform main processing */
+	CRD_vMain();
+}
+
+/****************************************************************************
+ *
+ * NAME: AppWarmStart
+ *
+ * DESCRIPTION:
+ * Entry point for application from boot loader. Simply jumps to AppColdStart
+ * as, in this instance, application will never warm start.
+ *
+ * RETURNS:
+ * Never returns.
+ *
+ ****************************************************************************/
+PUBLIC void AppWarmStart(void)
+{
+	/* Disable watchdog if enabled by default */
+	#ifdef WATCHDOG_ENABLED
+		vAHI_WatchdogStop();
+	#endif
+
+	#ifdef SWDEBUG
+       HAL_GDB_INIT();
+       HAL_BREAKPOINT();
+	#endif
+
+	/* Perform main processing */
+	CRD_vMain();
+}
+
+/****************************************************************************/
+/***        Local Functions                                               ***/
+/****************************************************************************/
+
+/****************************************************************************
+ *
+ * NAME: CRD_vMain
+ *
+ * DESCRIPTION:
+ * Check each of the three event queues and process and items found.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ * None.
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vMain(void)
+{
+    MAC_MlmeDcfmInd_s *psMlmeInd;
+	MAC_McpsDcfmInd_s *psMcpsInd;
+    AppQApiHwInd_s    *psAHI_Ind;
+
+    CRD_vInit();
+	initCommands();
+
+    //V200 does not do energy scan. It set to the RF channel in configuration directly.
+    //NODE_sData.u8Channel was retrieved from configuration from CRD_vInit()
+    //CRD_vReqEnergyScan();
+    //if (1){
+    if (gConfigData.settings.deviceType == dtMaster){
+    	printMsg("\r\n@Master ");
+    	printMsg(Z200_Version);
+    	CRD_vReqStartCoordinator();
+    	if (gConfigData.settings.verbose){
+			wuart_vPrintf(1, "Starting as PAN coordinator on channel 0x%x.\r\n",	NODE_sData.u8Channel);
+			wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+			printMsg("Ready to send and receive data.\r\n");
+    	}
+    	vAHI_WatchdogRestart();
+    	vAHI_WatchdogStart(7);
+    	while (1)
+		{
+			do
+			{
+				psMlmeInd = psAppQApiReadMlmeInd();
+				if (psMlmeInd != NULL)
+				{
+					CRD_vMlmeDcfmInd_Master(psMlmeInd);
+					vAppQApiReturnMlmeIndBuffer(psMlmeInd);
+				}
+			} while (psMlmeInd != NULL);
+			/* Check for anything on the MCPS upward queue */
+			do
+			{
+				psMcpsInd = psAppQApiReadMcpsInd();
+				if (psMcpsInd != NULL)
+				{
+					CRD_vMcpsDcfmInd(psMcpsInd);
+					vAppQApiReturnMcpsIndBuffer(psMcpsInd);
+				}
+			} while (psMcpsInd != NULL);
+			/* Check for anything on the AHI upward queue */
+			do
+			{
+				psAHI_Ind = psAppQApiReadHwInd();
+				if (psAHI_Ind != NULL)
+				{
+					CRD_vHwInd(psAHI_Ind);
+					vAppQApiReturnHwIndBuffer(psAHI_Ind);
+				}
+			} while (psAHI_Ind != NULL);
+		}
+    }else if (gConfigData.settings.deviceType == dtSlave){
+    	printMsg("\r\n@Slave ");
+    	printMsg(Z200_Version);
+    	ED_vReqActiveScan();//Postponse started message until association response received.
+    	if (gConfigData.settings.verbose){
+
+			wuart_vPrintf(1, "Starting as PAN coordinator on channel 0x%x.\r\n",	NODE_sData.u8Channel);
+			wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+			//printMsg("Ready to send and receive data.\r\n");
+    		printMsg("Scanning for coordinator...\r\n");
+    	}
+		//wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+		//printMsg("Ready to send and receive data.\r\n");
+		while (1)		{
+			do
+			{
+				psMlmeInd = psAppQApiReadMlmeInd();
+				if (psMlmeInd != NULL)
+				{
+					ED_vMlmeDcfmInd_Slave(psMlmeInd);
+					vAppQApiReturnMlmeIndBuffer(psMlmeInd);
+				}
+			} while (psMlmeInd != NULL);
+			/* Check for anything on the MCPS upward queue */
+			do
+			{
+				psMcpsInd = psAppQApiReadMcpsInd();
+				if (psMcpsInd != NULL)
+				{
+					CRD_vMcpsDcfmInd(psMcpsInd);
+					vAppQApiReturnMcpsIndBuffer(psMcpsInd);
+				}
+			} while (psMcpsInd != NULL);
+			/* Check for anything on the AHI upward queue */
+			do
+			{
+				psAHI_Ind = psAppQApiReadHwInd();
+				if (psAHI_Ind != NULL)
+				{
+					CRD_vHwInd(psAHI_Ind);
+					vAppQApiReturnHwIndBuffer(psAHI_Ind);
+				}
+			} while (psAHI_Ind != NULL);
+		}
+    }else if (gConfigData.settings.deviceType == dtOne2OneMaster){
+    	printMsg("\r\n@One2One Master ");
+    	printMsg(Z200_Version);
+		CRD_vReqStartCoordinator();
+    	if (gConfigData.settings.verbose){
+			wuart_vPrintf(1, "Starting as One2One master on channel 0x%x.\r\n",	NODE_sData.u8Channel);
+			wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+			printMsg("Ready to send and receive data.\r\n");
+    	}
+		while (1)
+		{
+			do
+			{
+				psMlmeInd = psAppQApiReadMlmeInd();
+				if (psMlmeInd != NULL)
+				{
+					CRD_vMlmeDcfmInd_Master(psMlmeInd);
+					vAppQApiReturnMlmeIndBuffer(psMlmeInd);
+				}
+			} while (psMlmeInd != NULL);
+			/* Check for anything on the MCPS upward queue */
+			do
+			{
+				psMcpsInd = psAppQApiReadMcpsInd();
+				if (psMcpsInd != NULL)
+				{
+					CRD_vMcpsDcfmInd(psMcpsInd);
+					vAppQApiReturnMcpsIndBuffer(psMcpsInd);
+				}
+			} while (psMcpsInd != NULL);
+			/* Check for anything on the AHI upward queue */
+			do
+			{
+				psAHI_Ind = psAppQApiReadHwInd();
+				if (psAHI_Ind != NULL)
+				{
+					CRD_vHwInd(psAHI_Ind);
+					vAppQApiReturnHwIndBuffer(psAHI_Ind);
+				}
+			} while (psAHI_Ind != NULL);
+		}
+
+    }else if (gConfigData.settings.deviceType == dtOne2OneSlave){
+    	printMsg("\r\n@One2One Slave ");
+    	printMsg(Z200_Version);
+     	if (gConfigData.settings.targetAddr!=0xFFFF){
+    		//ED_vReqAssociate();
+    	    //MAC_vPibSetShortAddr(NODE_sData.pvMac, NODE_sData.u16Address);
+    		/* Set pan id in pib */
+    	    //MAC_vPibSetPanId(NODE_sData.pvMac, NODE_sData.u16PanId);
+    	    /* Enable receiver to be on when idle */
+    	    //MAC_vPibSetRxOnWhenIdle(NODE_sData.pvMac, TRUE, FALSE);
+    	    //NODE_sData.psPib->bAssociationPermit = 0;
+            //NODE_sData.eNwkState = NODE_NWKSTATE_UP;
+    		//CRD_vReqStartCoordinator();
+    		ED_vReqStartEnddevice();
+        	if (gConfigData.settings.verbose){
+        		wuart_vPrintf(1, "Starting as One2One Slave on channel 0x%x.\r\n",	NODE_sData.u8Channel);
+    			wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+    			printMsg("Ready to send and receive data.\r\n");
+        	}
+    	}else{
+        	if (gConfigData.settings.verbose){
+        		wuart_vPrintf(1, "Starting as unpaired One2One slave.\r\nPlease do pairing.\r\n");
+    			wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+        	}
+    	}
+		//wuart_vPrintf(1, "Started with PAN ID %#x and short address %#x.\r\n", NODE_sData.u16PanId,	NODE_sData.u16Address);
+		//printMsg("Ready to send and receive data.\r\n");
+        //NODE_sData.eNwkState = NODE_NWKSTATE_UP;
+
+		while (1)		{
+			do
+			{
+				psMlmeInd = psAppQApiReadMlmeInd();
+				if (psMlmeInd != NULL)
+				{
+					ED_vMlmeDcfmInd_Slave(psMlmeInd);
+					vAppQApiReturnMlmeIndBuffer(psMlmeInd);
+				}
+			} while (psMlmeInd != NULL);
+			/* Check for anything on the MCPS upward queue */
+			do
+			{
+				psMcpsInd = psAppQApiReadMcpsInd();
+				if (psMcpsInd != NULL)
+				{
+					CRD_vMcpsDcfmInd(psMcpsInd);
+					vAppQApiReturnMcpsIndBuffer(psMcpsInd);
+				}
+			} while (psMcpsInd != NULL);
+			/* Check for anything on the AHI upward queue */
+			do
+			{
+				psAHI_Ind = psAppQApiReadHwInd();
+				if (psAHI_Ind != NULL)
+				{
+					CRD_vHwInd(psAHI_Ind);
+					vAppQApiReturnHwIndBuffer(psAHI_Ind);
+				}
+			} while (psAHI_Ind != NULL);
+		}
+    }
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vInit
+ *
+ * DESCRIPTION:
+ *
+ * RETURNS:
+ * void
+ *
+ ****************************************************************************/
+PRIVATE void CRD_vInit(void)
+{
+	uint32 temp =0;
+	uint16 totalSegments=0;
+	uint32 u32BaudRate=0;
+    /* Setup interface to MAC */
+    (void)u32AHI_Init();
+    (void)u32AppQApiInit(NULL, NULL, NULL);
+	DBG_vUartInit(DBG_UART, DBG_BAUD);
+	DBG_vPrintf(CRD_TRACE, "\r\n CRD < System Init...");
+	//vLedInitRfd();
+    vAHI_DioSetDirection( (1 << KEY0pin), 0);  //D2 = Key0 input temporarily. Default pullup
+    //vAHI_DioSetDirection(1, (1 << 3));  //D3 = Key1
+
+    /* Initialise coordinator data */
+    CRD_sData.u16Children = 0;
+    /* Initialise common 15.4 node data */
+    NODE_vInit();
+    /* Initialise the random number generator */
+	RND_vInit();
+
+	gConfigData.settings.baudrate=115200;    //9600
+	gConfigData.settings.parity=E_AHI_UART_PARITY_DISABLE;      //enable
+	//gConfigData.settings.parityType=E_AHI_UART_EVEN_PARITY;  //even
+	gConfigData.settings.dataBit=E_AHI_UART_WORD_LEN_8;
+	gConfigData.settings.stopBit=E_AHI_UART_1_STOP_BIT;
+	WUART_vInit();
+    //Qflash=========================================================
+	totalSegments = u16AHI_InitialiseEEP(&EEPROMSegmentDataLength);
+	//DBG_vPrintf(CRD_TRACE, "\r\nEEPROM info: Total %d segments. %dbytes each segment.", totalSegments, EEPROMSegmentDataLength);
+	//iAHI_EraseEEPROMsegment(0);
+
+	//=== Set up GPIOs ===
+	vAppApiSetHighPowerMode(APP_API_MODULE_HPM06, TRUE);
+	//vAppApiSetHighPowerMode(APP_API_MODULE_STD, TRUE);
+	//eAppApiPlmeSet(PHY_PIB_ATTR_TX_POWER, (uint32)(0));
+
+	vAHI_DioSetDirection(0,1);
+	vAHI_DioSetOutput(0,1); //D0 Off= Antenna 1
+	// Because D0 is errorneouly connected to DTR(output from CP2104), we set this pin to be input. Let CP2104 control the antenna.
+	//vAHI_DioSetOutput(1,0); //D0 On= Antenna2
+
+	//vAHI_DioSetDirection(1,0); //set D0(antenna select) as input
+
+	vAHI_DioSetDirection(0,2); //set D1 as output
+	vAHI_DioSetOutput(2,0);
+	//=== D2 and D3 must be high to activate PA and LNA
+	vAHI_DioSetDirection(0,4); //set D2 as output
+	//vAHI_DioSetOutput(4,0);  //set D2 high
+	vAHI_DioSetOutput(0,4);
+	vAHI_DioSetDirection(0,1<<3); //set D3 as output
+	vAHI_DioSetOutput(0,1<<3);  //set D3 high
+
+
+	vAHI_DioSetDirection(0,1<<18); //set D1 as output
+	vAHI_DioSetOutput(0,1<<18);  //set D3 high
+
+	initGPIO();
+
+	if (!(u32AHI_DioReadInput() & (1<< KEY0pin))){
+		DBG_vPrintf(CRD_TRACE, "\r\nPressKEYenableTimer.");
+		vAHI_TimerClockSelect(E_AHI_TIMER_1, FALSE, FALSE);    //Send CMD sensor timer
+		vAHI_TimerEnable(E_AHI_TIMER_1, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+		vAHI_Timer1RegisterCallback(timer1Callback);
+		vAHI_TimerStartRepeat(E_AHI_TIMER_1, 0,100);
+	}else{
+		DBG_vPrintf(CRD_TRACE, "\r\nPressKEYDisableTimer.");
+		vAHI_DioSetOutput(1<<LED1pin,0);   //LED ON
+		vAHI_DioSetOutput(1<<LED2pin,0);
+	}
+
+#if (1)
+	if (1){
+	//if (!(key & (1<< KEY0pin))){
+	//if (u32AHI_DioReadInput() & (1<< KEY0pin)){
+		//do nothing
+		iAHI_ReadDataFromEEPROMsegment(CONFIG_EEPROM_SECTOR_NUM,0,gConfigData.data,60);
+	}else{
+		//restore factory setting
+		//iAHI_EraseEEPROMsegment(2);
+		gConfigData.settings.mask=0x88;
+		gConfigData.settings.baudrate=9600;    //9600
+		//gConfigData.settings.parity=E_AHI_UART_PARITY_DISABLE;      //enable
+		gConfigData.settings.parity=E_AHI_UART_PARITY_ENABLE;      //enable
+		gConfigData.settings.parityType=E_AHI_UART_EVEN_PARITY;  //even
+		gConfigData.settings.dataBit=E_AHI_UART_WORD_LEN_7;
+		gConfigData.settings.stopBit=E_AHI_UART_1_STOP_BIT;
+		gConfigData.settings.deviceType=dtMaster; //Master
+		//gConfigData.settings.deviceType=dtOne2OneMaster; //Master
+		gConfigData.settings.panID=PAN_ID;
+		gConfigData.settings.shortAddr= NODE_sData.u64Address & 0xFFFF;
+		gConfigData.settings.targetAddr=0xFFFF;
+		gConfigData.settings.channel= Default_Channel;
+		gConfigData.settings.verbose =1;
+		gConfigData.settings.applicationResend=DefaultApplicationResendTimes;
+		gConfigData.settings.fwVersion=Z200_Version_Value;
+		gConfigData.settings.outputPower=0xFF; //maximum
+		gConfigData.settings.parentAddr=0xFFFF;
+		DBG_vPrintf(CRD_TRACE, "\r\nRestore factory settings.");
+		iAHI_WriteDataIntoEEPROMsegment(0,0,gConfigData.data,60);
+		printMsg("\r\nRestore factory settings.");
+	}
+
+	/*==========
+	for (i=0; i<64; i=i+2){
+		DBG_vPrintf(CRD_TRACE, " %#x-%#x \r\n", gConfigData.data[i], gConfigData.data[i+1]);
+	}
+	==========*/
+	if (gConfigData.settings.mask==0x88){
+		//Already got configuration set
+		//DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < vEEPROM %x", NODE_sData.u32Timer, EEData[1]);
+	}else{
+		//First time set Configuration
+		iAHI_EraseEEPROMsegment(CONFIG_EEPROM_SECTOR_NUM);
+		gConfigData.settings.mask=0x88;
+		gConfigData.settings.baudrate=9600;    //9600
+		gConfigData.settings.parity=E_AHI_UART_PARITY_DISABLE;      //enable
+		//gConfigData.settings.parity=E_AHI_UART_PARITY_ENABLE;      //enable
+		gConfigData.settings.parityType=E_AHI_UART_EVEN_PARITY;  //even
+		gConfigData.settings.dataBit=E_AHI_UART_WORD_LEN_8;
+		gConfigData.settings.stopBit=E_AHI_UART_1_STOP_BIT;
+		gConfigData.settings.deviceType=dtMaster; //Master
+		gConfigData.settings.panID=PAN_ID;
+		gConfigData.settings.shortAddr=NODE_sData.u64Address & 0xFFFF;
+		gConfigData.settings.targetAddr=0xFFFF;
+		gConfigData.settings.channel=Default_Channel;
+		gConfigData.settings.verbose =1;
+		gConfigData.settings.applicationResend=DefaultApplicationResendTimes;
+		gConfigData.settings.fwVersion=Z200_Version_Value;
+		gConfigData.settings.outputPower=0xFF; //maximum
+		gConfigData.settings.parentAddr=0xFFFF;
+		DBG_vPrintf(CRD_TRACE, "\r\nInitialize settings for the first time.");
+		iAHI_WriteDataIntoEEPROMsegment(CONFIG_EEPROM_SECTOR_NUM,0,gConfigData.data,64);
+
+	}
+
+    NODE_sData.u8Channel = gConfigData.settings.channel;
+	NODE_sData.u16Address = gConfigData.settings.shortAddr;
+	NODE_sData.u16PanId = gConfigData.settings.panID;
+	DBG_vPrintf(CRD_TRACE, "\r\nBaud=%d", gConfigData.settings.baudrate);
+	DBG_vPrintf(CRD_TRACE, "\r\nPANID= %#x", NODE_sData.u16PanId);
+	DBG_vPrintf(CRD_TRACE, "\r\nShortAddr= %#x, targetAddr= %#x", NODE_sData.u16Address, gConfigData.settings.targetAddr);
+	DBG_vPrintf(CRD_TRACE, "\r\nChannel= %d", NODE_sData.u8Channel);
+#endif
+	if (gConfigData.settings.parity){
+		if (gConfigData.settings.parityType==E_AHI_UART_EVEN_PARITY){
+			temp='E'; //even parity
+		}else{
+			temp='O'; //odd parity
+		}
+	}else{
+		temp='N';//non parity
+	}
+
+	wuart_vPrintf(WUART_UART,"%d, %c, %d, %d\r\n", gConfigData.settings.baudrate, temp, gConfigData.settings.dataBit, gConfigData.settings.stopBit);
+
+	WUART_vInit();
+	/* Set short address in pib */
+    MAC_vPibSetShortAddr(NODE_sData.pvMac, NODE_sData.u16Address);
+	/* Set pan id in pib */
+    MAC_vPibSetPanId(NODE_sData.pvMac, NODE_sData.u16PanId);
+    /* Enable receiver to be on when idle */
+    MAC_vPibSetRxOnWhenIdle(NODE_sData.pvMac, TRUE, FALSE);
+    /* Allow nodes to associate */
+    NODE_sData.psPib->bAssociationPermit = 1;
+	/* Initialise and turn on LEDs */
+
+	//=== Prepare RF packet ===
+	initRFPacket();
+	uint8 x=0;
+
+	for(x=0;x<MaxSensorNumber;x++){
+		iAHI_ReadDataFromEEPROMsegment(x+EEpromAddress,0,&sensorList_Test[x].data,63);
+	}
+	/* Start tick timer 8ms repeating */
+
+	vAHI_TickTimerInterval(8 * TICK_TIMER_MS);
+	vAHI_TickTimerWrite(0);
+	vAHI_TickTimerIntEnable(TRUE);
+	vAHI_TickTimerConfigure(E_AHI_TICK_TIMER_RESTART);
+
+
+
+	vAHI_TimerClockSelect(E_AHI_TIMER_0, FALSE, FALSE);
+
+	vAHI_TimerEnable(E_AHI_TIMER_0, 7,FALSE, TRUE,FALSE);
+	vAHI_Timer0RegisterCallback(timer0Callback);
+	//u8AHI_TimerFired(E_AHI_TIMER_0);
+	vAHI_TimerStartRepeat(E_AHI_TIMER_0, 0,100);
+
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vMlmeDcfmInd
+ *
+ * DESCRIPTION:
+ * Process any incoming managment events from the stack.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *                  psMlmeInd
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vMlmeDcfmInd_Master(MAC_MlmeDcfmInd_s *psMlmeInd)
+{
+	/* Which event type ? */
+    switch (psMlmeInd->u8Type)
+    {
+		/* Incoming scan results ? */
+		case MAC_MLME_DCFM_SCAN:
+		{
+			/* Waiting to create network ? */
+			if (NODE_sData.eNwkState == NODE_NWKSTATE_CREATE)
+			{
+				/* Energy scan results ? */
+				if (psMlmeInd->uParam.sDcfmScan.u8ScanType == MAC_MLME_SCAN_TYPE_ENERGY_DETECT)
+				{
+					/* Process energy scan results and start device as coordinator */
+					CRD_vDcfmScanEnergy(psMlmeInd);
+				}
+			}
+		}
+		break;
+
+		/* Incoming association request ? */
+		case MAC_MLME_IND_ASSOCIATE:
+		{
+			/* Network is up ? */
+			if (NODE_sData.eNwkState == NODE_NWKSTATE_UP)
+			{
+				/* Handle incoming association request */
+				   if (gConfigData.settings.deviceType == dtOne2OneMaster){
+					   if (gWorkingMode == wmPairingMode_c){
+						   CRD_vIndAssociate(psMlmeInd);
+					   }else{
+						   //Do not response to Association request
+					   }
+				   }else{
+					   CRD_vIndAssociate(psMlmeInd);
+				   }
+			}
+		}
+		break;
+
+		/* Others ? */
+		default:
+		{
+			/* Do nothing */
+			;
+		}
+		break;
+    }
+}
+
+PRIVATE void ED_vMlmeDcfmInd_Slave(MAC_MlmeDcfmInd_s *psMlmeInd)
+{
+	/* Which event type ? */
+    switch (psMlmeInd->u8Type)
+    {
+		/* Deferred confirmation that the scan is complete */
+		case MAC_MLME_DCFM_SCAN:
+		{
+			/* Discovering networks ? */
+			if (NODE_sData.eNwkState == NODE_NWKSTATE_DISCOVER)
+			{
+				/* Process scan delayed confirm */
+				ED_vDcfmScanActive(psMlmeInd);
+			}
+		}
+		break;
+
+		/* Deferred confirmation that the association process is complete */
+		case MAC_MLME_DCFM_ASSOCIATE:
+		{
+			/* Attempting to join network ? */
+			if (NODE_sData.eNwkState == NODE_NWKSTATE_JOIN)
+			{
+				/* Process assoicate delayed confirm */
+				ED_vDcfmAssociate(psMlmeInd);
+			}
+		}
+		break;
+
+		/* Others ? */
+		default:
+		{
+			/* Do nothing */
+			;
+		}
+		break;
+    }
+}
+
+
+/****************************************************************************
+ *
+ * NAME: CRD_vMcpsDcfmInd
+ *
+ * DESCRIPTION:
+ * Process incoming data events from the stack.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *                  psMcpsInd
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vMcpsDcfmInd(MAC_McpsDcfmInd_s *psMcpsInd)
+{
+	/* Which event type ? */
+	switch(psMcpsInd->u8Type)
+	{
+		/* Incoming data frame ? */
+        case MAC_MCPS_IND_DATA:
+		{
+    		/* Network is up ? */
+    		if (NODE_sData.eNwkState == NODE_NWKSTATE_UP)
+    		{
+				/* Handle incoming data */
+            	CRD_vIndData(psMcpsInd);
+			}
+		}
+        break;
+
+		/* Incoming acknowledgement or ack timeout ? */
+        case MAC_MCPS_DCFM_DATA:
+		{
+    		/* Network is up ? */
+    		if (NODE_sData.eNwkState == NODE_NWKSTATE_UP)
+    		{
+				/* Handle incoming delayed confirm data */
+	            CRD_vDcfmData(psMcpsInd);
+			}
+		}
+        break;
+
+		/* Others ? */
+        default:
+		{
+			/* Do nothing */
+			;
+		}
+        break;
+    }
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vHwInd
+ *
+ * DESCRIPTION:
+ * Process any hardware events.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *                  psAHI_Ind
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vHwInd(AppQApiHwInd_s *psAHI_Ind)
+{
+	/* Tick timer ? */
+	if (psAHI_Ind->u32DeviceId == E_AHI_DEVICE_TICK_TIMER)
+	{
+		/* Call tick function for node */
+		NODE_vTick();
+
+		/* Call the wuart tick function */
+		WUART_vTick();
+	}
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vIndData
+ *
+ * DESCRIPTION:
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *
+ * RETURNS:
+ *
+ * NOTES:
+ ****************************************************************************/
+PRIVATE void CRD_vIndData(MAC_McpsDcfmInd_s *psMcpsInd)
+{
+    MAC_RxFrameData_s *psFrame;
+
+    psFrame = &psMcpsInd->uParam.sIndData.sFrame;
+    uint64 u64SrcAddr;
+
+	/* Short addressing used ? */
+	if (psFrame->sSrcAddr.u8AddrMode == 2)
+	{
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vIndData() Mode=%d Short=%#x",
+			NODE_sData.u32Timer, psFrame->sSrcAddr.u8AddrMode, psFrame->sSrcAddr.uAddr.u16Short);
+
+		/* Pass data to wuart for handling */
+		//Preventing ono2one mode from receiving brodacast data 
+		if((gConfigData.settings.deviceType == dtOne2OneMaster)||(gConfigData.settings.deviceType == dtOne2OneSlave)){
+			if((NODE_sData.u16Address)==(psFrame->sDstAddr.uAddr.u16Short)){
+				WUART_vRxQ((uint64) psFrame->sSrcAddr.uAddr.u16Short, psFrame->u8SduLength, psFrame->au8Sdu);
+			}else{
+				DBG_vPrintf(CRD_TRACE,"not for me Short=%#x\r\n",psFrame->sSrcAddr.uAddr.u16Short);
+			}
+		}else{
+		    WUART_vRxQ((uint64) psFrame->sSrcAddr.uAddr.u16Short, psFrame->u8SduLength, psFrame->au8Sdu);
+		}
+
+	}
+	/* Extended addressing used ? */
+	else if (psFrame->sSrcAddr.u8AddrMode == 3)
+	{
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vIndData() Mode=%d Ext=%#x:%x",
+			NODE_sData.u32Timer, psFrame->sSrcAddr.u8AddrMode,
+			psFrame->sSrcAddr.uAddr.sExt.u32H, psFrame->sSrcAddr.uAddr.sExt.u32L);
+
+		/* Construct extended address */
+		u64SrcAddr = ((uint64) psFrame->sSrcAddr.uAddr.sExt.u32H << 32) | (uint64) psFrame->sSrcAddr.uAddr.sExt.u32L;
+		/* Pass data to wuart for handling */
+		WUART_vRxQ(u64SrcAddr, psFrame->u8SduLength, psFrame->au8Sdu);
+	}
+	gFlashDataLED=TRUE;
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vDcfmData
+ *
+ * DESCRIPTION:
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *
+ * RETURNS:
+ *
+ * NOTES:
+ ****************************************************************************/
+PRIVATE void CRD_vDcfmData(MAC_McpsDcfmInd_s *psMcpsInd)
+{
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vDcfmData() Status=%d",
+		NODE_sData.u32Timer, psMcpsInd->uParam.sDcfmData.u8Status);
+
+    if (psMcpsInd->uParam.sDcfmData.u8Status == MAC_ENUM_SUCCESS)
+    {
+        /* Data frame transmission successful */
+    	DBG_vPrintf(CRD_TRACE, "success");
+    	gApplicationResend =0;
+    }
+    else
+    {
+        /* Data transmission falied after 3 retries at MAC layer. */
+    	DBG_vPrintf(CRD_TRACE, "fail");
+    	if (gApplicationResend>0){
+    		gDoApplicationResend = TRUE;
+    	}else{
+			if (gConfigData.settings.verbose){
+				//printMsg("@NACK\r\n");
+				DBG_vPrintf(WUART_TRACE, "\r\nNACK");
+			}
+    	}
+    }
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vReqEnergyScan
+ *
+ * DESCRIPTION:
+ * Starts an enery sacn on the channels specified.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ * None.
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vReqEnergyScan(void)
+{
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vReqEnergyScan()",
+		NODE_sData.u32Timer);
+
+    /* Structures used to hold data for MLME request and response */
+    MAC_MlmeReqRsp_s   sMlmeReqRsp;
+    MAC_MlmeSyncCfm_s  sMlmeSyncCfm;
+
+    NODE_sData.eNwkState = NODE_NWKSTATE_CREATE;
+
+    /* Start energy detect scan */
+    sMlmeReqRsp.u8Type = MAC_MLME_REQ_SCAN;
+    sMlmeReqRsp.u8ParamLength = sizeof(MAC_MlmeReqStart_s);
+    sMlmeReqRsp.uParam.sReqScan.u8ScanType = MAC_MLME_SCAN_TYPE_ENERGY_DETECT;
+    sMlmeReqRsp.uParam.sReqScan.u32ScanChannels = SCAN_CHANNELS;
+    sMlmeReqRsp.uParam.sReqScan.u8ScanDuration = ENERGY_SCAN_DURATION;
+
+    vAppApiMlmeRequest(&sMlmeReqRsp, &sMlmeSyncCfm);
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vDcfmScanEnergy
+ *
+ * DESCRIPTION:
+ * Selects a channel with low enery content for use by the wireless UART.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ * None.
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vDcfmScanEnergy(MAC_MlmeDcfmInd_s *psMlmeInd)
+{
+    uint8 i = 0;
+    uint8 u8MinEnergy;
+
+	u8MinEnergy = (psMlmeInd->uParam.sDcfmScan.uList.au8EnergyDetect[0]);
+
+    NODE_sData.u8Channel = CHANNEL_MIN;
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vDcfmScanEnergy()",
+		NODE_sData.u32Timer);
+
+	/* Search list to find quietest channel */
+    while (i < psMlmeInd->uParam.sDcfmScan.u8ResultListSize)
+    {
+        if ((psMlmeInd->uParam.sDcfmScan.uList.au8EnergyDetect[i]) < u8MinEnergy)
+        {
+			u8MinEnergy = (psMlmeInd->uParam.sDcfmScan.uList.au8EnergyDetect[i]);
+			NODE_sData.u8Channel = i + CHANNEL_MIN;
+		}
+		i++;
+    }
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "Chan=%d Energy=%d",	NODE_sData.u8Channel, u8MinEnergy);
+
+    CRD_vReqStartCoordinator();
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vReqStartCoordinator
+ *
+ * DESCRIPTION:
+ * Starts the network by configuring the controller board to act as the PAN
+ * coordinator.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ * None.
+ *
+ * RETURNS:
+ * TRUE if network was started successfully otherwise FALSE
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vReqStartCoordinator(void)
+{
+    /* Structures used to hold data for MLME request and response */
+    MAC_MlmeReqRsp_s   sMlmeReqRsp;
+    MAC_MlmeSyncCfm_s  sMlmeSyncCfm;
+
+	/* Network is now up */
+    NODE_sData.eNwkState = NODE_NWKSTATE_UP;
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vReqStartCoordinator()",
+		NODE_sData.u32Timer);
+
+    /* Start Pan */
+    sMlmeReqRsp.u8Type = MAC_MLME_REQ_START;
+    sMlmeReqRsp.u8ParamLength = sizeof(MAC_MlmeReqStart_s);
+    sMlmeReqRsp.uParam.sReqStart.u16PanId = NODE_sData.u16PanId;
+    sMlmeReqRsp.uParam.sReqStart.u8Channel = NODE_sData.u8Channel;
+    sMlmeReqRsp.uParam.sReqStart.u8BeaconOrder = 0x0F;
+    sMlmeReqRsp.uParam.sReqStart.u8SuperframeOrder = 0x0F;
+    sMlmeReqRsp.uParam.sReqStart.u8PanCoordinator = TRUE;
+    sMlmeReqRsp.uParam.sReqStart.u8BatteryLifeExt = FALSE;
+    sMlmeReqRsp.uParam.sReqStart.u8Realignment = FALSE;
+    sMlmeReqRsp.uParam.sReqStart.u8SecurityEnable = FALSE;
+
+    vAppApiMlmeRequest(&sMlmeReqRsp, &sMlmeSyncCfm);
+
+	/* Wuart not running ? */
+	if (WUART_sData.u8State == WUART_STATE_NONE)
+	{
+		/* Put wuart into idle state */
+		WUART_vState(WUART_STATE_IDLE);
+	}
+}
+
+/****************************************************************************
+ *
+ * NAME: CRD_vIndAssociate
+ *
+ * DESCRIPTION:
+ * Handle request by node to join the network.
+ *
+ * PARAMETERS:      Name            RW  Usage
+ *                  psMlmeInd
+ *
+ * RETURNS:
+ * None.
+ *
+ * NOTES:
+ * None.
+ ****************************************************************************/
+PRIVATE void CRD_vIndAssociate(MAC_MlmeDcfmInd_s *psMlmeInd)
+{
+    uint16 u16ShortAddr = 0xffff;
+    uint16 u16EndDeviceIndex;
+
+    MAC_MlmeReqRsp_s   sMlmeReqRsp;
+    MAC_MlmeSyncCfm_s  sMlmeSyncCfm;
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vIndAssociate() Ext=%#x:%x",
+		NODE_sData.u32Timer,
+		psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H,
+		psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L);
+
+	/* Loop through current end devices */
+	for (u16EndDeviceIndex = 0;
+		 u16EndDeviceIndex < MAX_CHILDREN && u16ShortAddr == 0xffff;
+		 u16EndDeviceIndex++)
+	{
+		/* Already got this end device ? */
+		if (CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrL 	==
+            psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L				&&
+		    CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrH 	==
+            psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H)
+		{
+			/* Note the short address of this entry */
+			u16ShortAddr = CRD_sData.asChild[u16EndDeviceIndex].u16ShortAddr;
+
+			sMlmeReqRsp.uParam.sRspAssociate.u8Status = 0; /* Access granted */
+
+			/* Debug */
+			DBG_vPrintf(CRD_TRACE, " Short=%#x REJOIN",
+				NODE_sData.u32Timer, u16ShortAddr);
+
+			gWorkingMode = wmNormalMode_c;     //paring succeed
+			if (gConfigData.settings.verbose){
+				printMsg("@Pairing succeeds.\r\n");
+				LED1On
+			}
+		}
+	}
+
+	/* Not an existing end device and have room for more ? */
+    if (u16ShortAddr == 0xffff &&  CRD_sData.u16Children <  MAX_CHILDREN)
+    {
+        /* Store end device address data */
+        u16EndDeviceIndex = CRD_sData.u16Children;
+        u16ShortAddr = (uint16)(psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L & 0xffff);
+
+        CRD_sData.asChild[u16EndDeviceIndex].u16ShortAddr = u16ShortAddr;
+
+        CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrL  =
+        psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L;
+
+        CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrH  =
+        psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H;
+
+        CRD_sData.u16Children++;
+
+        sMlmeReqRsp.uParam.sRspAssociate.u8Status = 0; /* Access granted */
+
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, " Short=%#x JOIN", u16ShortAddr);
+
+		gWorkingMode = wmNormalMode_c;     //paring succeed
+		if (gConfigData.settings.verbose){
+			printMsg("@Pairing succeeds.\r\n");
+			LED1On
+		}
+    }
+    else if (u16ShortAddr == 0xffff)
+    {
+        sMlmeReqRsp.uParam.sRspAssociate.u8Status = 2; /* Denied */
+
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, " DENIED");
+    }
+
+    /* Create association response */
+    sMlmeReqRsp.u8Type = MAC_MLME_RSP_ASSOCIATE;
+    sMlmeReqRsp.u8ParamLength = sizeof(MAC_MlmeRspAssociate_s);
+    sMlmeReqRsp.uParam.sRspAssociate.sDeviceAddr.u32H = psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H;
+    sMlmeReqRsp.uParam.sRspAssociate.sDeviceAddr.u32L = psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L;
+    sMlmeReqRsp.uParam.sRspAssociate.u16AssocShortAddr = 0xFFFE; //use its own short address
+    //sMlmeReqRsp.uParam.sRspAssociate.u16AssocShortAddr = u16ShortAddr;
+    sMlmeReqRsp.uParam.sRspAssociate.u8SecurityEnable = FALSE;
+
+    if (gConfigData.settings.deviceType == dtOne2OneMaster){
+    	gConfigData.settings.targetAddr = (uint16)(psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L & 0xffff);
+    	//Save to flash
+    	u16AHI_InitialiseEEP(&EEPROMSegmentDataLength);
+    	iAHI_EraseEEPROMsegment(CONFIG_EEPROM_SECTOR_NUM);
+    	iAHI_WriteDataIntoEEPROMsegment(CONFIG_EEPROM_SECTOR_NUM,0,gConfigData.data,64);
+    }
+    /* Send association response. There is no confirmation for an association
+       response, hence no need to check */
+    vAppApiMlmeRequest(&sMlmeReqRsp, &sMlmeSyncCfm);
+}
+
+PRIVATE void CRD_vIndAssociate_One2One(MAC_MlmeDcfmInd_s *psMlmeInd)
+{
+    uint16 u16ShortAddr = 0xffff;
+    uint16 u16EndDeviceIndex;
+
+    MAC_MlmeReqRsp_s   sMlmeReqRsp;
+    MAC_MlmeSyncCfm_s  sMlmeSyncCfm;
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, "\r\n%d CRD < CRD_vIndAssociate() Ext=%#x:%x",
+		NODE_sData.u32Timer,
+		psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H,
+		psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L);
+
+    u16ShortAddr = (uint16)(psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L & 0xffff);
+
+	gConfigData.settings.targetAddr = u16ShortAddr;
+	sMlmeReqRsp.uParam.sRspAssociate.u8Status = 0; /* Access granted */
+
+	/* Debug */
+	DBG_vPrintf(CRD_TRACE, " Short=%#x REJOIN", NODE_sData.u32Timer, u16ShortAddr);
+
+
+	/* Not an existing end device and have room for more ? */
+    if (u16ShortAddr == gConfigData.settings.targetAddr)
+    {
+        /* Store end device address data */
+        u16EndDeviceIndex = CRD_sData.u16Children;
+        u16ShortAddr = (uint16)(psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L & 0xffff);
+
+        CRD_sData.asChild[u16EndDeviceIndex].u16ShortAddr = u16ShortAddr;
+
+        CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrL  =
+        psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L;
+
+        CRD_sData.asChild[u16EndDeviceIndex].u32ExtAddrH  =
+        psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H;
+
+        CRD_sData.u16Children++;
+
+        sMlmeReqRsp.uParam.sRspAssociate.u8Status = 0; /* Access granted */
+
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, " Short=%#x JOIN", u16ShortAddr);
+    }
+    else if (u16ShortAddr == 0xffff)
+    {
+        sMlmeReqRsp.uParam.sRspAssociate.u8Status = 2; /* Denied */
+
+		/* Debug */
+		DBG_vPrintf(CRD_TRACE, " DENIED");
+    }
+
+    /* Create association response */
+    sMlmeReqRsp.u8Type = MAC_MLME_RSP_ASSOCIATE;
+    sMlmeReqRsp.u8ParamLength = sizeof(MAC_MlmeRspAssociate_s);
+    sMlmeReqRsp.uParam.sRspAssociate.sDeviceAddr.u32H = psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32H;
+    sMlmeReqRsp.uParam.sRspAssociate.sDeviceAddr.u32L = psMlmeInd->uParam.sIndAssociate.sDeviceAddr.u32L;
+    sMlmeReqRsp.uParam.sRspAssociate.u16AssocShortAddr = 0xFFFE; //use its own short address
+    //sMlmeReqRsp.uParam.sRspAssociate.u16AssocShortAddr = u16ShortAddr;
+    sMlmeReqRsp.uParam.sRspAssociate.u8SecurityEnable = FALSE;
+
+    /* Send association response. There is no confirmation for an association
+       response, hence no need to check */
+    vAppApiMlmeRequest(&sMlmeReqRsp, &sMlmeSyncCfm);
+}
+
+
+/****************************************************************************/
+/***        END OF FILE                                                   ***/
+/****************************************************************************/

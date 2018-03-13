@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog_dialogBounds">
+		<item value="313" key="DIALOG_WIDTH"/>
+		<item value="146" key="DIALOG_Y_ORIGIN"/>
+		<item value="1590" key="DIALOG_X_ORIGIN"/>
+		<item value="432" key="DIALOG_HEIGHT"/>
+		<item value="1|Microsoft JhengHei UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft JhengHei UI" key="DIALOG_FONT_NAME"/>
+	</section>
+	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
+		<item value="true" key="wrap"/>
+		<item value="false" key="casesensitive"/>
+		<item value="false" key="isRegEx"/>
+		<item value="false" key="incremental"/>
+		<item value="false" key="wholeword"/>
+		<item value="dtOne2OneSlave" key="selection"/>
+		<list key="findhistory">
+			<item value="Timer4_Watchdog_flag"/>
+			<item value="EEGroup"/>
+			<item value="evCheckCount_Event"/>
+			<item value="dtOne2OneSlave"/>
+			<item value="dtOne2OneMaster"/>
+			<item value="processCMD2"/>
+			<item value="processPsW"/>
+			<item value="processSlis"/>
+		</list>
+		<list key="replacehistory">
+		</list>
+	</section>
+</section>

@@ -1,0 +1,485 @@
+/*
+ * QEvent_Process.c
+
+ *
+ *  Created on: 2017/9/4
+ *      Author: K98David
+ */
+
+/* Jennic includes */
+#include <jendefs.h>
+#include <AppHardwareApi.h>
+#include <string.h>
+#include "QApp.h"
+#include "QEvent_Process.h"
+#include "Qsensor.h"
+#include "wuart.h"
+
+uint16 gEvents= evNothing;
+TimerState_t Timer4NowState=Timer4Stop;
+//TimerState_t Timer4oldState=Timer4Stop;
+bool SendLsCmdData=FALSE;
+uint8 LsRFlen=0;
+bool TestCount=FALSE;
+
+void Delay(uint16 ms){  //3.65us
+	uint16 delay;
+	 volatile uint32_t i;
+	 for (delay = ms; delay >0 ; delay--)
+	//1ms loop with -Os optimisation
+	  {
+	  for (i=1; i >0;i--){};
+	  }
+}
+
+void Eventhandle(void){
+    if (gEvents & evKey0PressedEvent){
+		DBG_vPrintf(1, "\r\n gKey0Event");
+    	ED_vReqActiveScan();
+		gWorkingMode = wmPairingMode_c;
+		gPairingPeriodCounter=0;
+		gEvents &=~ evKey0PressedEvent;
+    }else if (gEvents & evKey1PressedEvent){
+		DBG_vPrintf(1, "\r\n gKey1Event");
+		gEvents &=~ evKey1PressedEvent;
+    }else if (gEvents & evPolling_EnableEvent){
+
+    	vAHI_TimerEnable(E_AHI_TIMER_4, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+    	vAHI_Timer4RegisterCallback(timer4_Polling_Callback);
+    	vAHI_TimerStartRepeat(E_AHI_TIMER_4, 0,500);   //2's
+    	sensor_mode=EnableMode_c;
+		gEvents &=~ evPolling_EnableEvent;
+    }else if (gEvents & evFindSensor_ListEvent){
+
+    	char RS485Out_Data[8]={0};
+		DBG_vPrintf(1, "evFindSensor_ListEvent\r\n");
+		if(getSensorCMD(RS485Out_Data)!=0xFF){
+			DBG_vPrintf(1, "evFindSensor_ListEvent T\r\n");
+			printCmd(RS485Out_Data,8);
+			Sensor485State=SendCMD;
+		}
+
+
+
+		gEvents &=~ evFindSensor_ListEvent;
+    }else if (gEvents & evFindSensor_CountEvent){
+
+    	char RS485Out_Data[8]={0};
+
+		DBG_vPrintf(1, "evFindSensor_CountEvent\r\n");
+		if(getSensorCMD(RS485Out_Data)!=0xFF){
+			DBG_vPrintf(1, "evFindSensor_CountEvent T\r\n");
+			printCmd(RS485Out_Data,8);
+			Sensor485State=SendCMD;
+		}
+
+
+
+		gEvents &=~ evFindSensor_CountEvent;
+    }else if (gEvents & evUpdate_DataEvent){
+    	uint8_t y=0,x=0;
+    	uint8 sensor_Number=0;
+    	uint8 gRFRS485_Count=0;
+    	char temp;
+    	char temp2;
+    	//gRXRS485SensorCMDIndex;
+    	//gRXRS485Sensor_Count;
+
+
+		if(gRXRS485Sensor_Count>0){
+
+			sensor_RF_Packet_len=14;
+			sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+			//sensor_RF_Packet[SEQ_POS]=z++;
+			sensor_RF_Packet[Time_POS]=0x01;   //immediate data
+			sensor_RF_Packet[Address_POS]=sensorList[gRXRS485SensorCMDIndex].info.sensorAddress;
+			sensor_RF_Packet[Type_POS]=sensorList[gRXRS485SensorCMDIndex].info.sensorType;
+			sensor_RF_Packet[DataSeQ_POS]=sensorList[gRXRS485SensorCMDIndex].dataHeaderIndex;
+			//sensor_RF_Packet[Length_POS]=sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRXRS485Sensor_Count].sensorDataLen;
+
+			DBG_vPrintf(WUART_TRACE, "\r\nWUART RF gRXRS485SensorCMDIndex %d\r\n",gRXRS485SensorCMDIndex);
+			/*
+			for(y=0;y<7;y++){
+				DBG_vPrintf(1, "%x", sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRXRS485Sensor_Count].sensorData[y]);
+			}
+*/
+
+			for(gRFRS485_Count=0;gRFRS485_Count<=gRXRS485Sensor_Count;gRFRS485_Count++){
+				sensor_RF_Packet[sensor_RF_Packet_len]=gRFRS485_Count;  //Count
+				sensor_RF_Packet[sensor_RF_Packet_len+1]=0x2C;      //,
+				sensor_RF_Packet[sensor_RF_Packet_len+2]=sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen;     //Data Len
+				sensor_RF_Packet[sensor_RF_Packet_len+3]=0x2C;      //,
+				/* push Data to RFPacket*/
+				memcpy(sensor_RF_Packet+sensor_RF_Packet_len+4, &sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorData[3],sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen);
+				sensor_RF_Packet[sensor_RF_Packet_len+4+sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen]=0x20;      //
+				sensor_RF_Packet_len=sensor_RF_Packet_len+4+sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen+1;
+			}
+
+			DBG_vPrintf(WUART_TRACE, "\r\sensor_RF_Packet_len=%d\r\n",sensor_RF_Packet_len);
+			DBG_vPrintf(WUART_TRACE, "\r\nsensor_RF_Packet\r\n");
+			for(y=0;y<sensor_RF_Packet_len;y++){
+				DBG_vPrintf(1, "sensor_RF_Packet[%d]=%02x \r\n",y,sensor_RF_Packet[y]);
+			}
+			sensor_RF_Packet[Length_POS]=sensor_RF_Packet_len-14;
+
+
+		}else{
+			sensor_RF_Packet_len=14;
+			sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+			//sensor_RF_Packet[SEQ_POS]=z++;
+			sensor_RF_Packet[Time_POS]=0x01;   //immediate data
+			sensor_RF_Packet[Address_POS]=sensorList[gRXRS485SensorCMDIndex].info.sensorAddress;
+			sensor_RF_Packet[Type_POS]=sensorList[gRXRS485SensorCMDIndex].info.sensorType;
+			sensor_RF_Packet[DataSeQ_POS]=sensorList[gRXRS485SensorCMDIndex].dataHeaderIndex;
+			//sensor_RF_Packet[Length_POS]=sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRXRS485Sensor_Count].sensorDataLen;
+
+
+			sensor_RF_Packet[sensor_RF_Packet_len]=gRFRS485_Count;  //Count
+			sensor_RF_Packet[sensor_RF_Packet_len+1]=0x2C;      //,
+			sensor_RF_Packet[sensor_RF_Packet_len+2]=sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen;     //Data Len
+			sensor_RF_Packet[sensor_RF_Packet_len+3]=0x2C;      //,
+			/* push Data to RFPacket*/
+			memcpy(sensor_RF_Packet+sensor_RF_Packet_len+4, &sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorData[3],sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen);
+			sensor_RF_Packet[sensor_RF_Packet_len+4+sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen]=0x20;      //
+			sensor_RF_Packet_len=sensor_RF_Packet_len+4+sensorList[gRXRS485SensorCMDIndex].sensorDataNum[gRFRS485_Count].sensorDataLen+1;
+
+			DBG_vPrintf(WUART_TRACE, "\r\sensor_RF_Packet_len=%d\r\n",sensor_RF_Packet_len);
+			DBG_vPrintf(WUART_TRACE, "\r\nsensor_RF_Packet\r\n");
+			for(y=0;y<sensor_RF_Packet_len;y++){
+				DBG_vPrintf(1, "sensor_RF_Packet[%d]=%02x \r\n",y,sensor_RF_Packet[y]);
+			}
+			sensor_RF_Packet[Length_POS]=sensor_RF_Packet_len-14;
+		}
+
+		/* Send RF*/
+		if (gConfigData.settings.targetAddr == 0xFFFF){
+			WUART_vTx(0xFFFF, sensor_RF_Packet_len, sensor_RF_Packet);
+			DBG_vPrintf(1, "SendRF \r\n");
+			for(y=0;y<sensor_RF_Packet_len;y++){
+				DBG_vPrintf(1, "%02x", sensor_RF_Packet[y]);
+			}
+		}else{
+			uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+			WUART_vTxAck(targetAddr, sensor_RF_Packet_len, sensor_RF_Packet);
+		}
+
+
+
+
+
+
+/*
+		sensor_Number=getSensorNumber();
+		DBG_vPrintf(1, "getSensorNumber %d \r\n",sensor_Number);
+		sensor_RF_Packet_len=14;
+		if(sensor_Number!=0xFF){
+			if(0){
+			//if(OldsensorData_Count[sensor_Number].oldIndex==sensorList[sensor_Number].dataHeaderIndex){     //for log
+				sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+				sensor_RF_Packet[Time_POS]=0x00;   //log data
+				sensor_RF_Packet[Address_POS]=sensorList[sensor_Number].info.sensorAddress;
+				sensor_RF_Packet[Type_POS]=sensorList[sensor_Number].info.sensorType;
+				sensor_RF_Packet[DataSeQ_POS]=0xff;
+				if(rF_Log_Count==0){
+					rF_Log_Count=sensorList[sensor_Number].dataHeaderIndex-sensorList[sensor_Number].dataTailIndex+1;
+				}
+				for(x=rF_Log_Count;x<sensorList[sensor_Number].dataHeaderIndex;x++){
+					memcpy(sensor_RF_Packet+sensor_RF_Packet_len+rF_Log_len, &x,1);   //seq number
+					memcpy(sensor_RF_Packet+sensor_RF_Packet_len+rF_Log_len+1, &sensorList[sensor_Number].sensorDataNum[x].sensorData[3],sensorList[sensor_Number].sensorDataNum[x].sensorData[2]);
+					rF_Log_len=rF_Log_len+sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[2]+1;   //catch data len
+			    }
+				sensor_RF_Packet[Length_POS]=rF_Log_len;
+				/* Send RF
+				if (gConfigData.settings.targetAddr == 0xFFFF){
+					WUART_vTx(0xFFFF, sensor_RF_Packet_len+rF_Log_len, sensor_RF_Packet);
+				}else{
+					uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+					//WUART_vTxAck(targetAddr, u8CmdData, au8CmdData);
+				}
+				DBG_vPrintf(1, "vAHI_Timer1Disable\r\n");
+				vAHI_TimerDisable(E_AHI_TIMER_1);
+			}else{   //for immediate
+				sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+				//sensor_RF_Packet[SEQ_POS]=z++;
+				sensor_RF_Packet[Time_POS]=0x01;   //immediate data
+				sensor_RF_Packet[Address_POS]=sensorList[sensor_Number].info.sensorAddress;
+				sensor_RF_Packet[Type_POS]=sensorList[sensor_Number].info.sensorType;
+				sensor_RF_Packet[DataSeQ_POS]=sensorList[sensor_Number].dataHeaderIndex;
+				sensor_RF_Packet[Length_POS]=sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[2];
+
+				DBG_vPrintf(WUART_TRACE, "\r\nWUART RF listNum %d\r\n",sensor_Number);
+				for(y=0;y<7;y++){
+					DBG_vPrintf(1, "%x", sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[y]);
+				}
+
+				memcpy(sensor_RF_Packet+sensor_RF_Packet_len, &sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[3],sensor_RF_Packet[Length_POS]);
+				sensorList[sensor_Number].dataTailIndex++;  //test commed
+				if(sensorList[sensor_Number].dataTailIndex > MaxDataNumber){
+					sensorList[sensor_Number].dataTailIndex=0;
+				}
+				sensor_RF_Packet_len=sensor_RF_Packet_len+sensor_RF_Packet[Length_POS];
+				//rF_Immediate_Count++;
+				/* Send RF
+				if (gConfigData.settings.targetAddr == 0xFFFF){
+					WUART_vTx(0xFFFF, sensor_RF_Packet_len, sensor_RF_Packet);
+					DBG_vPrintf(1, "SendRF \r\n");
+					for(y=0;y<sensor_RF_Packet_len;y++){
+						DBG_vPrintf(1, "%02x", sensor_RF_Packet[y]);
+					}
+				}else{
+					uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+					WUART_vTxAck(targetAddr, sensor_RF_Packet_len, sensor_RF_Packet);
+				}
+			}
+		}
+*/
+
+		gEvents &=~ evUpdate_DataEvent;
+    }else if (gEvents & evRS485No_DataEvent){
+    	DBG_vPrintf(1, "No485Data\r\n");
+		gEvents &=~ evRS485No_DataEvent;
+    }else if (gEvents & evReper_Event){
+
+		gEvents &=~ evReper_Event;
+    }else if (gEvents & evRfLsList_Event){
+
+    	uint8 x=0,y=0,List_Count=0;
+    	uint8 LsCMDTemp[50]={0};
+    	uint8 LsCMDTemp2[50]={0};
+    	uint8 Ls2Len=0;
+
+    	for(x=0;x<MaxSensorNumber;x++){
+			DBG_vPrintf(1, "\r\nreadEEpromSensor %d\r\n", x);
+
+			DBG_vPrintf(1, "sensorList Count%x\r\n", sensorList[x].info.CmdCount);
+			DBG_vPrintf(1, "sensorList mask%x\r\n", sensorList[x].info.mask);
+			DBG_vPrintf(1, "sensorList Type%x\r\n", sensorList[x].info.sensorType);
+			DBG_vPrintf(1, "sensorList Enable%d\r\n", sensorList[x].info.Enable);
+			DBG_vPrintf(1, "sensorList Address%x\r\n", sensorList[x].info.sensorAddress);
+			DBG_vPrintf(1, "sensorList LoopTemp %d\r\n", sensorList[x].info.LoopTime);
+		/*	DBG_vPrintf(1, "sensorList CMD Len%d\r\n", sensorList[x].info.sensorCmdNum[0].sensorCmdLen);
+
+			DBG_vPrintf(1, "sensorList CMD\r\n");
+			for(y=0;y<sensorList[x].info.sensorCmdNum[0].sensorCmdLen;y++){
+				DBG_vPrintf(1, "%x", sensorList[x].info.sensorCmdNum[0].sensorCmd[y]);
+			}
+			*/
+    	}
+
+    	x=0;
+    	while(x<MaxSensorNumber){
+    		if(sensorList[x].info.mask !=0){
+
+    			LsCMDTemp[1]=x;    //Arr Number
+    			LsCMDTemp[2]=0x2C; //,
+    			LsCMDTemp[3]=sensorList[x].info.sensorAddress;   //address
+    			LsCMDTemp[4]=0x2C; //,
+    			LsCMDTemp[5]=sensorList[x].info.sensorType;   //sensorType
+    			LsCMDTemp[6]=0x2C; //,
+    			LsCMDTemp[7]=sensorList[x].info.CmdCount; //CMD Count
+    			LsCMDTemp[8]=0x2C; //,
+
+    			for(y=0;y<sensorList[x].info.CmdCount;y++){
+        			if((List_Count<(sensorList[x].info.CmdCount)-1)){
+            			LsCMDTemp[9+y]=sensorList[x].info.CMD_Table_number[List_Count++]; //,
+            			//LsCMDTemp[9+y+1]=0x23; //,
+        			}else{
+            			LsCMDTemp[9+y]=sensorList[x].info.CMD_Table_number[List_Count]; //,
+        				List_Count=0;
+        				break;
+        			}
+    			}
+                LsCMDTemp[9+y+1]=0x20;
+                if(LsCMDTemp[0]>0){
+            		LsCMDTemp[0]=9+y+1;    //Len
+                }else{
+            		LsCMDTemp[0]=9+y+1+Ls2Len;    //Len   first
+                }
+
+
+        		memcpy(&LsCMDTemp2[Ls2Len],LsCMDTemp,9+y+1+1);
+        		Ls2Len=9+y+1+1+Ls2Len;
+    		}
+    		x++;
+    		//Ls2Len=0;
+    	}
+/*
+    	while(x<MaxSensorNumber){
+    		if(sensorList[x].info.mask !=0){
+    			LsCMDTemp[0]=x;    //Arr Number
+    			LsCMDTemp[1]=0x2C; //,
+    			LsCMDTemp[2]=sensorList[x].info.sensorAddress;   //address
+    			LsCMDTemp[3]=0x2C; //,
+    			LsCMDTemp[4]=sensorList[x].info.sensorType;   //sensorType
+    			LsCMDTemp[5]=0x2C; //,
+
+    			for(y=0;y<sensorList[x].info.sensorCmdNum[0].sensorCmdLen;y++)
+                {
+                	LsCMDTemp[6+y]=sensorList[x].info.sensorCmdNum[0].sensorCmd[y];
+                }
+                LsCMDTemp[6+y]=0x20;
+        		memcpy(&LsCMDTemp2[Ls2Len],LsCMDTemp,6+y+1);
+        		Ls2Len=6+y+1+Ls2Len;
+
+    		}
+    		x++;
+
+    	}
+*/
+		DBG_vPrintf(1, "\r\nLs2Len=%d\r\n", Ls2Len);
+
+    	for(x=0;x<Ls2Len;x++){
+		    DBG_vPrintf(1, "LsCMDTemp2[%d]=%x\r\n", x,LsCMDTemp2[x]);
+    	}
+
+/*
+		sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+		//sensor_RF_Packet[SEQ_POS]=z++;
+		sensor_RF_Packet[Time_POS]=0x01;   //immediate data
+		sensor_RF_Packet[Address_POS]=0;
+		sensor_RF_Packet[Type_POS]=0;
+		sensor_RF_Packet[DataSeQ_POS]=0;
+
+		sensor_RF_Packet[Length_POS]=Ls2Len;
+
+
+		memcpy(&sensor_RF_Packet[14],LsCMDTemp2,Ls2Len);
+
+*/
+		au8CmdData[SEQ_POS] = WUART_u8MsgSeqTxNew();
+		au8CmdData[8]=Ls2Len;   //RF in Data Len
+		LsRFlen=Ls2Len+9;
+		memcpy(&au8CmdData[9],LsCMDTemp2,Ls2Len);
+
+    	for(x=0;x<Ls2Len+9;x++){
+		    DBG_vPrintf(1, "au8CmdData[%d]=%x\r\n", x,au8CmdData[x]);
+    	}
+
+    	if(Timer4NowState==Timer4Run){
+    		SendLsCmdData=TRUE;
+    		//Timer4oldState=Timer4Run;
+    	}else if(Timer4NowState==Timer4Stop){
+    		//Timer4oldState=Timer4Stop;
+    		SendLsCmdData=TRUE;
+        	vAHI_TimerEnable(E_AHI_TIMER_4, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+        	vAHI_Timer4RegisterCallback(timer4_Polling_Callback);
+        	vAHI_TimerStartRepeat(E_AHI_TIMER_4, 0,500);   //2's
+    	}
+
+		gEvents &=~ evRfLsList_Event;
+    }else if (gEvents & evRfLsCMD_Event){
+
+    	uint8 x=0,y=0,CMD_Count=0;
+    	uint8 LsCMDTemp[50]={0};
+    	uint8 LsCMDTemp2[50]={0};
+    	uint8 Ls2Len=0;
+
+    	for(x=0;x<SensorCMDNumber;x++){
+			DBG_vPrintf(1, "\r\nreadEEpromCMD%d\r\n", x);
+
+			DBG_vPrintf(1, "SensorCMDTest_Table %d\r\n", x);
+		    DBG_vPrintf(1, "SensorCMD_Table Len=%d\r\n", SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen);
+
+			DBG_vPrintf(1, "SensorCMDTest_Table CMD\r\n");
+
+			for(y=0;y<SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen;y++){
+				DBG_vPrintf(1, "SensorCMDTest_Table.sensorCmdTable_Num[%d].sensorCmd[%d]=%x \r\n",x,y ,SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmd[y]);
+			}
+    	}
+
+    	x=0;
+    	while(x<SensorCMDNumber){
+    		if(SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen !=0){
+
+    			LsCMDTemp[1]=x;    //Table Number
+    			LsCMDTemp[2]=0x2C; //,
+
+    			for(y=0;y<SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen;y++){
+    				LsCMDTemp[3+y]=SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmd[y]; //
+/*
+        			if(CMD_Count<SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen){
+            			LsCMDTemp[3+y]=SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmd[CMD_Count++]; //
+            			//LsCMDTemp[9+y+1]=0x23; //,
+        			}else{
+            			LsCMDTemp[3+y]=SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmd[CMD_Count]; //
+            			CMD_Count=0;
+        				break;
+        			}
+        			*/
+    			}
+                LsCMDTemp[3+y]=0x20;
+                if(LsCMDTemp[0]>0){
+            		LsCMDTemp[0]=3+y;    //Len
+                }else{
+            		LsCMDTemp[0]=3+y+Ls2Len;    //Len   first
+                }
+
+
+        		memcpy(&LsCMDTemp2[Ls2Len],LsCMDTemp,3+y+1);
+        		Ls2Len=3+y+1+Ls2Len;
+    		}
+    		x++;
+    	}
+
+		DBG_vPrintf(1, "\r\nLs2Len=%d\r\n", Ls2Len);
+
+    	for(x=0;x<Ls2Len;x++){
+		    DBG_vPrintf(1, "LsCMDTemp2[%d]=%x\r\n", x,LsCMDTemp2[x]);
+    	}
+
+		au8CmdData[SEQ_POS] = WUART_u8MsgSeqTxNew();
+		au8CmdData[8]=Ls2Len;   //RF in Data Len
+		LsRFlen=Ls2Len+9;
+		memcpy(&au8CmdData[9],LsCMDTemp2,Ls2Len);
+
+    	for(x=0;x<Ls2Len+9;x++){
+		    DBG_vPrintf(1, "au8CmdData[%d]=%x\r\n", x,au8CmdData[x]);
+    	}
+
+    	if(Timer4NowState==Timer4Run){
+    		SendLsCmdData=TRUE;
+    	}else if(Timer4NowState==Timer4Stop){
+    		SendLsCmdData=TRUE;
+        	vAHI_TimerEnable(E_AHI_TIMER_4, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+        	vAHI_Timer4RegisterCallback(timer4_Polling_Callback);
+        	vAHI_TimerStartRepeat(E_AHI_TIMER_4, 0,500);   //2's
+    	}
+
+		gEvents &=~ evRfLsCMD_Event;
+    }else if (gEvents & evRfLs_SendRF_Event){
+    	uint8_t y=0;
+
+		/* Send RF*/
+		if (gConfigData.settings.targetAddr == 0xFFFF){
+			WUART_vTx(0xFFFF, LsRFlen, au8CmdData);
+			DBG_vPrintf(1, "SendRF \r\n");
+			for(y=0;y<sensor_RF_Packet_len;y++){
+				DBG_vPrintf(1, "%02x", au8CmdData[y]);
+			}
+		}else{
+			uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+			WUART_vTxAck(targetAddr, LsRFlen, au8CmdData);
+		}
+
+		gEvents &=~ evRfLs_SendRF_Event;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void sendEvent(uint16 event){
+	gEvents |=event;
+}

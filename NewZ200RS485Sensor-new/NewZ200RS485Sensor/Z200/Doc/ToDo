@@ -1,0 +1,15 @@
+
+Optimize folowings in dbg.h
+/* Queue data size (use a power of two) */
+#define DBG_QUEUE_DATA		128 				  /**< Size of queue */
+#define DBG_QUEUE_DATA_LOW	(DBG_QUEUE_DATA >> 2) /**< Low level of free space */
+#define DBG_QUEUE_DATA_HIGH	(DBG_QUEUE_DATA >> 1) /**< Hign level of free space */
+
+
+Disable Queue statistics in queue.c
+/* Functionality defines */
+#define QUEUE_STATS 	TRUE	/**< Maintain statistics for queues */
+
+
+程式為了偵測方便 low capacity, 所以限制queue size to 2 的幕次。
+可用數量少於四分之一時, 就要變動RTS
