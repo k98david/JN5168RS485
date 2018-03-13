@@ -1,0 +1,47 @@
+/*
+ * QEvent_Process.h
+ *
+ *  Created on: 2017/9/4
+ *      Author: K98David
+ */
+
+#ifndef QEVENT_PROCESS_H_
+#define QEVENT_PROCESS_H_
+
+
+
+//=== Event definitions
+#define	evNothing			         0
+#define	evKey0PressedEvent    	     1
+#define	evKey1PressedEvent		     2
+#define	evPolling_EnableEvent        4
+#define	evFindSensor_ListEvent	     8
+#define	evUpdate_DataEvent	         0x0010
+#define	evRS485No_DataEvent	         0x0020
+#define	evReper_Event	             0x0040
+#define	evRfLsList_Event	         0x0080
+#define	evRfLs_SendRF_Event	         0x0100
+#define	evFindSensor_CountEvent	     0x0200
+#define	evRfLsCMD1_Event	         0x0400
+#define	evRfLsCMD2_Event	         0x0800
+#define	evCheckCount_Event	         0x1000
+#define	evFifoCheck_Event	         0x2000
+#define	evReboot_Event	             0x4000
+void Eventhandle(void);
+void sendEvent(uint16);
+
+typedef enum
+{
+	Timer3Stop = 0,
+	Timer3Run,
+	Timer4Stop,
+	Timer4Run
+}TimerState_t;
+extern bool TestCount;
+
+extern bool SendLsCmdData;
+extern TimerState_t Timer4NowState;
+extern uint16 gPairingPeriodCounter;
+extern uint16_t timeCount;
+//extern TimerState_t Timer4oldState;
+#endif /* QEVENT_PROCESS_H_ */

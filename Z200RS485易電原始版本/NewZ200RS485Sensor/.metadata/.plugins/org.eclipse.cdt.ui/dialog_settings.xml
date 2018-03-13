@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item value="Default C source template" key="LastUsedSourceTemplate"/>
+	<item value="Default C header template" key="LastUsedHeaderTemplate"/>
+	<section name="completion_proposal_size">
+	</section>
+	<section name="PDOMSearchPage">
+		<item value="227191" key="searchFlags"/>
+		<item value="false" key="caseSensitive"/>
+		<list key="previousPatterns">
+			<item value="totalSegments"/>
+			<item value="EEPROMSegmentDataLength"/>
+			<item value="EEPROMDataLength"/>
+			<item value="sensorList_Test"/>
+			<item value="readEEpromSensor"/>
+			<item value="WATCHDOG_ENABLED"/>
+			<item value="dataTailIndex"/>
+			<item value="dataHeaderIndex"/>
+			<item value="sensor_mode"/>
+			<item value="processRfEnable"/>
+			<item value="sensorCmdNum"/>
+			<item value="processRfADD"/>
+			<item value="gCmdIndex"/>
+			<item value="gSerialMode"/>
+			<item value="PswCmdData"/>
+			<item value="QUEUE_bFlush"/>
+			<item value="QUEUE_u16Used"/>
+			<item value="gWaitUARTPacket"/>
+			<item value="processSensorD"/>
+			<item value="CRD_vHwInd"/>
+			<item value="WUART_vTick"/>
+			<item value="u8CmdData"/>
+			<item value="Temp"/>
+			<item value="au8CmdData"/>
+			<item value="bTxData"/>
+			<item value="processStopBit"/>
+			<item value="Time_POS"/>
+			<item value="SEQ_POS"/>
+			<item value="MAC_POS"/>
+			<item value="CommandMode_c"/>
+			<item value="EnableMode_c"/>
+			<item value="WUART_u8MsgSeqTxNew"/>
+			<item value="gConfigData"/>
+			<item value="getSensorCMD"/>
+			<item value="WUART_bTxData"/>
+			<item value="parseCommand"/>
+			<item value="SensorInfo_t"/>
+			<item value="processSensorE"/>
+			<item value="processRepeat"/>
+		</list>
+	</section>
+	<section name="org.eclipse.cdt.ui.text.hover.CMacroExpansionExploration">
+	</section>
+</section>
