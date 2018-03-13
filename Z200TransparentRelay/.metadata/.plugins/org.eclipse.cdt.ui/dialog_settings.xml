@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item value="Default C source template" key="LastUsedSourceTemplate"/>
+	<item value="Default C header template" key="LastUsedHeaderTemplate"/>
+	<section name="OptionalMessageDialog.hide.">
+		<item value="0" key="askReindex.detail"/>
+	</section>
+	<section name="completion_proposal_size">
+	</section>
+	<section name="org.eclipse.cdt.internal.ui.typehierarchy.OpenTypeInHierarchyActionSettings">
+		<item value="true" key="show_structs"/>
+		<item value="true" key="show_lowlevel"/>
+		<item value="false" key="show_macros"/>
+		<item value="false" key="show_variables"/>
+		<item value="508" key="width"/>
+		<item value="false" key="show_functions"/>
+		<item value="true" key="show_enums"/>
+		<item value="825" key="height"/>
+		<item value="true" key="show_classes"/>
+		<item value="true" key="show_typedefs"/>
+		<item value="false" key="show_namespaces"/>
+		<item value="true" key="show_unions"/>
+		<item value="false" key="show_enumerators"/>
+		<item value="107" key="y"/>
+		<item value="2626" key="x"/>
+	</section>
+	<section name="PDOMSearchPage">
+		<item value="227191" key="searchFlags"/>
+		<item value="false" key="caseSensitive"/>
+		<list key="previousPatterns">
+			<item value="OutFlag"/>
+			<item value="HROutData"/>
+			<item value="UART_bNum2String"/>
+			<item value="UART_bPrintf_ap"/>
+			<item value="u8CmdData"/>
+			<item value="Convert"/>
+			<item value="SRC_POS"/>
+			<item value="u8MsgSeqRx"/>
+			<item value="au8CmdData"/>
+			<item value="TARGET_POS"/>
+			<item value="OutData_Head"/>
+			<item value="WUART_vRxQ"/>
+			<item value="stopBit"/>
+			<item value="ResetModeNoPairkey"/>
+			<item value="EEPROMSegmentDataLength"/>
+			<item value="calc_crc"/>
+			<item value="dtSlave"/>
+			<item value="u8Channel"/>
+			<item value="gRxdelay_count"/>
+			<item value="Scanningforcoordinator"/>
+			<item value="QUEUE_bGet"/>
+			<item value="vAHI_UartSetInterrupt"/>
+			<item value="TransparentMode_c"/>
+			<item value="E_AHI_RND_CONTINUOUS"/>
+			<item value="LED1On"/>
+			<item value="timer1Callback"/>
+			<item value="Gpio_Degug"/>
+			<item value="Z200485"/>
+			<item value="RTSpin"/>
+			<item value="shortAddr"/>
+			<item value="CRD_vDcfmData"/>
+			<item value="gWorkingMode"/>
+			<item value="printMsg"/>
+			<item value="Pairingsucceeds"/>
+			<item value="wmPairingMode_c"/>
+			<item value="CRD_vMcpsDcfmInd"/>
+			<item value="dtOne2OneMaster"/>
+			<item value="WUART_sData"/>
+			<item value="u8Ack"/>
+			<item value="CRD_vIndData"/>
+			<item value="verbose"/>
+			<item value="MAC_MLME_REQ_SCAN"/>
+			<item value="gPairingPeriodCounter"/>
+			<item value="deviceType"/>
+			<item value="SendTestUse"/>
+			<item value="CTSpin"/>
+			<item value="processDataBit"/>
+			<item value="LED2pin"/>
+			<item value="LED1pin"/>
+			<item value="timer0Callback"/>
+			<item value="targetAddr"/>
+			<item value="gConfigData"/>
+			<item value="initRFPacket"/>
+			<item value="KEY0pin"/>
+			<item value="gKey0Pressed"/>
+			<item value="applicationResend"/>
+			<item value="gApplicationResend"/>
+			<item value="testCounter"/>
+			<item value="eAppApiPlmeSet"/>
+			<item value="vAHI_HighPowerModuleEnable"/>
+			<item value="gFlashDataLED"/>
+			<item value="sendTestData"/>
+			<item value="WUART_vTx"/>
+			<item value="gWaitUARTPacket"/>
+			<item value="UART_vStartTx"/>
+			<item value="asQueue"/>
+			<item value="initGPIO"/>
+			<item value="vAHI_DioSetOutput"/>
+			<item value="UART_bOpen"/>
+			<item value="DBG_vPrintf"/>
+			<item value="vAHI_Uart0RegisterCallback"/>
+			<item value="Uart0RegisterCallback"/>
+			<item value="WUART_vInit"/>
+			<item value="WUART_STATS"/>
+			<item value="psMlmeInd"/>
+			<item value="vProcessReceivedDataPacket"/>
+			<item value="COORDINATOR_ADR"/>
+			<item value="CRD_sData"/>
+			<item value="CRD_vIndAssociate"/>
+			<item value="NODE_sData"/>
+		</list>
+	</section>
+	<section name="org.eclipse.cdt.ui.text.hover.CMacroExpansionExploration.internal">
+		<item value="448" key="size.width"/>
+		<item value="180" key="size.height"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.OPEN_ACTION_SELECTION_DIALOG_SECTION">
+		<item value="462" key="DIALOG_WIDTH"/>
+		<item value="293" key="DIALOG_Y_ORIGIN"/>
+		<item value="550" key="DIALOG_HEIGHT"/>
+		<item value="978" key="DIALOG_X_ORIGIN"/>
+		<item value="1|Microsoft JhengHei UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft JhengHei UI" key="DIALOG_FONT_NAME"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.text.hover.CMacroExpansionExploration">
+	</section>
+</section>

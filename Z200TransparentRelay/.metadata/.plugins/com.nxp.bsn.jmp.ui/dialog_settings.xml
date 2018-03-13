@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item value="COM3" key="jmp.prog.port"/>
+	<item value="PRESERVE" key="jmp.prog.eeprom.mode"/>
+	<item value="500000" key="jmp.prog.baud"/>
+	<list key="jmp.read.flash.filelist">
+		<item value=""/>
+	</list>
+	<list key="jmp.read.eeprom.filelist">
+		<item value=""/>
+	</list>
+	<list key="jmp.prog.image.filelist">
+		<item value="C:\NXP\bstudio_nxp\Z200TransparentRelay\Z200\Coordinator\Build\Coordinator_JN5168.bin"/>
+		<item value="C:\Users\K98David\Desktop\Coordinator_JN5168.bin"/>
+		<item value="C:\Users\K98David\Desktop\Coordinator_JN5168T.bin"/>
+		<item value="C:\Users\K98David\Documents\工作區\JN5168Zigbee\JN-AN-1069-IEEE-802.15.4-Serial-Cable-Replacement\Coordinator\Build\Coordinator_JN5168.bin"/>
+		<item value="${workspace_loc:/JN-AN-1174-JN516x-802-15-4-Application-Template}"/>
+		<item value=""/>
+	</list>
+	<list key="jmp.prog.eeprom.filelist">
+		<item value=""/>
+	</list>
+</section>
