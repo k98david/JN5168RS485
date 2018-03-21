@@ -1,0 +1,936 @@
+/*
+ * Qsensor.c
+ *
+ *  Created on: 2017/5/25
+ *      Author: K98David
+ */
+
+/*
+ * QSensor.c
+ *
+ *  Created on: 2017/1/16
+ *      Author: K98David
+ */
+
+
+#include <jendefs.h>
+#include <AppHardwareApi.h>
+#include <AppHardwareApi_JN516x.h>
+#include "Qsensor.h"
+#include <string.h>
+#include "QApp.h"
+#include "config.h"
+#include "wuart.h"
+#include "uart.h"
+#include "QEvent_Process.h"
+
+
+SensorLog_t sensorList[MaxSensorNumber];
+//SensorLog_t sensorListTest[MaxSensorNumber];
+static uint8_t lastsensor_num=0;
+SensorMode_t sensor_mode=DisableMode_c;
+uint8 EEPROMDataLength=64;
+uint8 EEPROMCMDLength=128;
+uint8 totalSegment=0;
+uint8_t send_RF_Data_Count=0;
+uint8_t sensor_RF_Packet_len=0;
+uint8_t sensorType_Count=0;
+//uint8_t rF_Immediate_Count=0;
+uint8_t rF_Log_Count=0;
+uint8_t rF_Log_len=0;
+uint8_t OldsensorType_Count=0;
+bool rF_Log_Flag=FALSE;
+SensorOldIndex_t OldsensorData_Count[MaxSensorNumber];
+static uint8_t gCurrentSensorCMDIndex=0;
+static uint8_t gCurrentSensorNUMIndex=0;
+
+static uint8_t gTXRS485Sensor_Count=0;
+uint8_t gRXRS485Sensor_Count=0;
+uint8_t gRXRS485SensorCMDIndex=0;
+Sensor485State_t Sensor485State=Error;
+//void readEEpromSensor(void);
+void calc_crc(unsigned char *buf,int len);
+void printCmd(uint8 * msg,uint8 len);
+uint8_t check_Empty(SensorLog_t *sensorTemp);
+uint8_t check_HaveData(SensorLog_t *sensorTemp);
+
+uint8_t getSensorCMD(uint8_t *sData);
+uint8_t getSensorNumber(void);
+uint8 sensor_RF_Packet[100]={0};
+char *Temp;
+uint8_t Len;
+
+bool RS485CMD_Count_Flag=FALSE;
+bool RS485CMD_Count_Timer_Flag=FALSE;
+uint8_t RS485CMD_Count=0;
+bool PSW_CMD_flag=FALSE;
+SensorCMDTable_t SensorCMD_Table[1];
+//SensorCMDTable_t SensorCMDTest_Table[1];
+uint8 StarlsList_Number=0;
+uint8 EndlsList_Number=0;
+static uint16_t timeCount=0,PowerUptimeCount=0;
+bool Ready_SendData_flag=FALSE;
+uint8_t processSensorE(char * cmdStr){
+	/*
+	char * sName;
+	char * sAddress;
+	char  sAddressH;
+	char  sAddressL;
+    uint8_t x=0;
+    uint8_t y=0;
+    uint8_t outTemp[63]={0};
+
+    sensorList[lastsensor_num].info.sensorAddress=0x01;
+	sensorList[lastsensor_num].info.sensorType=XMT_288FC;
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[0]=sensorList[lastsensor_num].info.sensorAddress;    //sensor address
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[1]=0x03;
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[2]=0x00;
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[3]=0x00;
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[4]=0x00;
+	//sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd[5]=0x01;
+	//calc_crc(sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmd,6);
+
+	sensorList[lastsensor_num].info.Enable=1;
+	sensorList[lastsensor_num].info.mask=0x88;
+	sensor_mode=EnableMode_c;
+
+	DBG_vPrintf(1, "sensorList Count%x\r\n", sensorList[lastsensor_num].info.CmdCount);
+	DBG_vPrintf(1, "sensorList mask%x\r\n", sensorList[lastsensor_num].info.mask);
+	DBG_vPrintf(1, "sensorList Type%x\r\n", sensorList[lastsensor_num].info.sensorType);
+	DBG_vPrintf(1, "sensorList Enable%x\r\n", sensorList[lastsensor_num].info.Enable);
+	DBG_vPrintf(1, "sensorList Address%x\r\n", sensorList[lastsensor_num].info.sensorAddress);
+
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(lastsensor_num+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(lastsensor_num+EEpromAddress,0,&sensorList[lastsensor_num],63);
+	vAHI_TimerEnable(E_AHI_TIMER_1, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+	vAHI_Timer1RegisterCallback(timer1_Polling_Callback);
+	vAHI_TimerStartRepeat(E_AHI_TIMER_1, 0,100);
+
+	return 1;
+	*/
+}
+
+uint8_t processSensorD(char * cmdStr){
+/*
+	char * sName;
+	char * sAddress;
+	char  sAddressH;
+	char  sAddressL;
+	char AddressTemp;
+	uint8_t i=0;
+	sName = strtok(cmdStr, " ");
+
+	sAddress = strtok(cmdStr, ", ");
+	sAddress = strtok(NULL, "\r");
+	sAddressH=sAddress[0];
+	sAddressL=sAddress[1];
+
+	if(sAddressH>0x30 && sAddressH<=0x33){
+		AddressTemp=((sAddressH-0x30)*10)+sAddressL-0x30;
+	}else{
+		AddressTemp=sAddressL-0x30;
+	}
+
+	for(i=0;i<MaxSensorNumber;i++){
+		sensorList[i].info.sensorType=sName[0]-0x30;
+		if(sensorList[i].info.sensorAddress==AddressTemp){
+			sensorList[i].info.Enable=0;
+			iAHI_EraseEEPROMsegment(i+EEpromAddress);
+			break;
+		}else{
+			continue;
+		}
+	}
+*/
+	return 1;
+}
+
+uint8_t processTest(char * cmdStr){
+
+/*
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(lastsensor_num+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(lastsensor_num+EEpromAddress,0,&sensorList[0],64);
+	*/
+	return 1;
+}
+
+
+
+
+uint8 processSlis(char * cmdStr){
+    uint8_t x=0;
+    uint8_t y=0;
+    uint16 ASCII=0;
+   // uint8 Lsist_Number=0;
+
+
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    lastsensor_num=convertASCII2Hex(&ASCII);
+
+	DBG_vPrintf(1, "lastsensor_num=%d\r\n",lastsensor_num);
+    ASCII=(cmdStr[2]<<8)+cmdStr[3];
+	sensorList[lastsensor_num].info.sensorAddress=convertASCII2Hex(&ASCII);
+	DBG_vPrintf(1, "sensorAddress=%x\r\n",sensorList[lastsensor_num].info.sensorAddress);
+    ASCII=(cmdStr[4]<<8)+cmdStr[5];
+	sensorList[lastsensor_num].info.sensorType=convertASCII2Hex(&ASCII);
+	DBG_vPrintf(1, "sensorType=%x\r\n",sensorList[lastsensor_num].info.sensorType);
+    ASCII=(cmdStr[6]<<8)+cmdStr[7];
+	sensorList[lastsensor_num].info.CMD_Table_number[0]=convertASCII2Hex(&ASCII);
+	DBG_vPrintf(1, "CMD_Table_number=%x\r\n",sensorList[lastsensor_num].info.CMD_Table_number[0]);
+	sensorList[lastsensor_num].info.Enable=1;
+	sensorList[lastsensor_num].info.mask=0x88;
+	sensor_mode=EnableMode_c;
+	sensorList[lastsensor_num].info.CmdCount=1;
+	sensorList[lastsensor_num].info.LoopTime=5;
+
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(lastsensor_num+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(lastsensor_num+EEpromAddress,0,&sensorList[lastsensor_num],64);
+
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+/*
+	DBG_vPrintf(1, "processRfADD \r\n");
+
+	lastsensor_num=check_Empty(&sensorList[0]);
+	DBG_vPrintf(1, "lastsensor_num %x \r\n", lastsensor_num);
+	if(lastsensor_num!=0xff){
+		Temp = strtok(cmdStr, ",");
+		DBG_vPrintf(1, "Temp1 %s\r\n", Temp);
+		sensorList[lastsensor_num].info.sensorType=convertASCII2Hex(Temp);
+		Temp = strtok(NULL, ",");
+		DBG_vPrintf(1, "Temp2 %s\r\n", Temp);
+		sensorList[lastsensor_num].info.sensorAddress=convertASCII2Hex(Temp);
+		while(Temp!=NULL){
+		    Temp = strtok(NULL, ",");
+			DBG_vPrintf(1, "\r\nTemp3 %s\r\n", Temp);
+		    Len=strlen(Temp);
+		    if(Len==4){
+		        break;
+		    }
+			DBG_vPrintf(1, "Len %x\r\n", Len);
+			DBG_vPrintf(1, "sensorList inWhileCount%x\r\n", sensorList[lastsensor_num].info.CmdCount);
+			y=0;
+			sensorList[lastsensor_num].info.CMD_Table_number[sensorList[lastsensor_num].info.CmdCount]=convertASCII2Hex(Temp);
+
+			DBG_vPrintf(1, "sensorList CMDTableNum=%x\r\n",sensorList[lastsensor_num].info.CMD_Table_number[sensorList[lastsensor_num].info.CmdCount]);
+
+			sensorList[lastsensor_num].info.Enable=1;
+			sensorList[lastsensor_num].info.mask=0x88;
+			sensor_mode=EnableMode_c;
+			sensorList[lastsensor_num].info.CmdCount++;
+			sensorList[lastsensor_num].info.LoopTime=5;
+		}
+	}
+	DBG_vPrintf(1, "sensorList Count%x\r\n", sensorList[lastsensor_num].info.CmdCount);
+	DBG_vPrintf(1, "sensorList mask%x\r\n", sensorList[lastsensor_num].info.mask);
+	DBG_vPrintf(1, "sensorList Type%x\r\n", sensorList[lastsensor_num].info.sensorType);
+	DBG_vPrintf(1, "sensorList Enable%d\r\n", sensorList[lastsensor_num].info.Enable);
+	DBG_vPrintf(1, "sensorList Address%x\r\n", sensorList[lastsensor_num].info.sensorAddress);
+	DBG_vPrintf(1, "sensorList LoopTime%d\r\n", sensorList[lastsensor_num].info.LoopTime);
+	//DBG_vPrintf(1, "sensorList CMD Len%d\r\n", sensorList[lastsensor_num].info.sensorCmdNum[0].sensorCmdLen);
+
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(lastsensor_num+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(lastsensor_num+EEpromAddress,0,&sensorList[lastsensor_num],64);
+
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+	*/
+	return 0;
+}
+
+
+uint8 processSCMD(char * cmdStr){
+    uint8_t x=0;
+    uint8_t y=0;
+    uint8 CMD_Number=0;
+    uint16 ASCII=0;
+
+    Temp=strtok(&cmdStr[2], "\r\n");
+
+    DBG_vPrintf(1, "Temp=%s\r\n", Temp);
+
+    Len=strlen(Temp);
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+	CMD_Number=convertASCII2Hex(&ASCII);
+	Len=Len-5;
+	DBG_vPrintf(1, "Len=%d CMD_Number=%d\r\n", Len,CMD_Number);
+    for(x=0;x<=Len+5;x+=2){
+    	SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd[y++]=convertASCII2Hex(Temp+x);
+    }
+/*
+    calc_crc(SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd,(Len/2));
+*/
+    SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen=Len;
+
+
+    DBG_vPrintf(1, "SensorCMD_Table Len=%d\r\n", SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen);
+
+	DBG_vPrintf(1, "sensorList CMD\r\n");
+	for(y=0;y<SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen;y++){
+		DBG_vPrintf(1, "%x", SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd[y]);
+	}
+
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(CMD_Number+EEpromCMDTable+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(CMD_Number+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number],64);
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+
+
+/*
+    Temp=strtok(&cmdStr[2], "\r\n");
+
+    DBG_vPrintf(1, "Temp=%s\r\n", Temp);
+
+    Len=strlen(Temp);
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+	CMD_Number=convertASCII2Hex(&ASCII);
+	DBG_vPrintf(1, "Len=%d CMD_Number=%d\r\n", Len,CMD_Number);
+    for(x=0;x<=Len;x+=2){
+    	SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd[y++]=convertASCII2Hex(Temp+x);
+    }
+
+    calc_crc(SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd,(Len/2));
+    SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen=(Len/2)+2;
+
+
+    DBG_vPrintf(1, "SensorCMD_Table Len=%d\r\n", SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen);
+
+	DBG_vPrintf(1, "sensorList CMD\r\n");
+	for(y=0;y<SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmdLen;y++){
+		DBG_vPrintf(1, "%x", SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number].sensorCmd[y]);
+	}
+
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(CMD_Number+EEpromCMDTable+EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(CMD_Number+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table[0].sensorCmdTable_Num[CMD_Number],64);
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+*/
+	return 0;
+}
+
+
+uint8 processDLIS(char * cmdStr){
+
+	uint8  SensorEENumber=0;
+    uint16 ASCII=0;
+
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    SensorEENumber=convertASCII2Hex(&ASCII);
+
+
+	iAHI_EraseEEPROMsegment(SensorEENumber+EEpromAddress);
+
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+	return 0;
+}
+
+uint8 processDCMD(char * cmdStr){
+	uint8  SensorEENumber=0;
+
+    uint16 ASCII=0;
+
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    SensorEENumber=convertASCII2Hex(&ASCII);
+
+	iAHI_EraseEEPROMsegment(EEpromCMDTable+SensorEENumber+EEpromAddress);
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+	return 0;
+}
+
+
+
+
+uint8 processRfEnableLoop(char * cmdStr){
+	/*
+	vAHI_TimerEnable(E_AHI_TIMER_1, 16 ,FALSE, TRUE,FALSE);  //409.6ms
+	vAHI_Timer1RegisterCallback(timer1_TSensorCMD_Callback);
+	vAHI_TimerStartRepeat(E_AHI_TIMER_1, 0,100);
+	*/
+	DBG_vPrintf(1, "ELOO\r\n", Temp);
+	sendEvent(evPolling_EnableEvent);
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+	return 0;
+}
+
+uint8 processRfDisableLoop(char * cmdStr){
+
+	//sendEvent(evRfLsCMD_Event);
+	DBG_vPrintf(1, "DLOO\r\n", Temp);
+	vAHI_TimerDisable(E_AHI_TIMER_4);
+	Timer4NowState=Timer4Stop;
+	sensor_mode=DisableMode_c;
+
+	return 0;
+}
+
+uint8 processRfLoopTime(char * cmdStr){
+	uint8 LoopTemp=0;
+    uint16 ASCII=0;
+    uint8 Index=0;
+
+
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    Index=convertASCII2Hex(&ASCII);
+
+	DBG_vPrintf(1, "Index=%d\r\n",Index);
+
+    ASCII=(cmdStr[2]<<8)+cmdStr[3];
+    LoopTemp=convertASCII2Hex(&ASCII);
+
+	DBG_vPrintf(1, "Index=%d LoopTemp=%d\r\n",Index, LoopTemp);
+
+	if(sensorList[Index].info.sensorAddress!=0){
+		sensorList[Index].info.LoopTime=LoopTemp;
+
+		totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+		iAHI_EraseEEPROMsegment(Index+EEpromAddress);
+		iAHI_WriteDataIntoEEPROMsegment(Index+EEpromAddress,0,&sensorList[Index],64);
+
+	}
+
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+
+/*
+	Temp = strtok(cmdStr, ",");
+	DBG_vPrintf(1, "Temp1 %s\r\n", Temp);
+	LoopTemp=convertASCII2Hex(Temp);
+
+	sensorList[0].info.LoopTime=LoopTemp;
+
+	DBG_vPrintf(1, "LoopTemp %d\r\n", sensorList[0].info.LoopTime);
+	totalSegment = u16AHI_InitialiseEEP(&EEPROMDataLength);
+	iAHI_EraseEEPROMsegment(EEpromAddress);
+	iAHI_WriteDataIntoEEPROMsegment(EEpromAddress,0,&sensorList[0],64);
+	PSW_CMD_flag=FALSE;  //restart RS485 Loop
+	*/
+	return 0;
+}
+
+uint8 processlist(char * cmdStr){
+    uint16 ASCII=0;
+   // uint8 StarlsList_Number=0;
+  //  uint8 EndlsList_Number=0;
+
+
+    ASCII=(cmdStr[0]<<8)+cmdStr[1];
+    StarlsList_Number=convertASCII2Hex(&ASCII);
+
+    ASCII=(cmdStr[2]<<8)+cmdStr[3];
+    EndlsList_Number=convertASCII2Hex(&ASCII);
+
+	DBG_vPrintf(1, "StarlsList_Number=%d , EndlsList_Number=%d\r\n",StarlsList_Number,EndlsList_Number);
+
+	sendEvent(evRfLsList_Event);
+	return 0;
+}
+
+uint8 processCMD1(char * cmdStr){
+	DBG_vPrintf(1, "evRfLsCMD1_Event\r\n");
+	sendEvent(evRfLsCMD1_Event);
+	return 0;
+}
+
+uint8 processCMD2(char * cmdStr){
+	DBG_vPrintf(1, "evRfLsCMD2_Event\r\n");
+	sendEvent(evRfLsCMD2_Event);
+	return 0;
+}
+
+uint8_t check_Empty(SensorLog_t *sensorTemp){
+
+	uint8_t i=0;
+
+	for(i=0;i<MaxSensorNumber;i++){
+		if(sensorTemp[i].info.sensorType==0x00 && sensorList[i].info.Enable==0){
+			return i;
+		}
+	}
+
+	return 0xff;
+}
+
+uint8_t check_HaveData(SensorLog_t *sensorTemp){
+	uint8_t i=0;
+
+	for(i=0;i<MaxSensorNumber;i++){
+		DBG_vPrintf(1, "sensorList Type%x\r\n", sensorList[0].info.sensorType);
+		DBG_vPrintf(1, "sensorList Enable%d\r\n", sensorList[0].info.Enable);
+		if((sensorList[0].info.sensorType!=0x00) && (sensorList[0].info.Enable!=0)){
+			return i;
+		}
+	}
+	return 0xff;
+}
+/*
+PUBLIC void timer1_SensorCMD_Callback(uint32 u32Device, uint32 u32ItemBitmap){
+	static uint8_t timeCount=0;
+	char outStr[8]={0};
+	uint8_t y=0;
+	//LED3Off
+	timeCount++;
+	DBG_vPrintf(1, "T1 %d \r\n", timeCount);
+	if(timeCount>10){
+
+		y=check_HaveData(&sensorList[0]);
+		DBG_vPrintf(1, "check_HaveData %x\r\n", y);
+		if(check_HaveData(&sensorList[0])!= 0xFF){    //check list empty?
+			if(getSensorCMD(outStr)!=0xFF){
+				printCmd(outStr,8);
+			}
+		DBG_vPrintf(1, "send CMD\r\n");
+		}else{
+			DBG_vPrintf(1, "vAHI_Timer1Disable\r\n");
+			vAHI_TimerDisable(E_AHI_TIMER_1);
+		}
+
+		timeCount=0;
+	}
+}
+*/
+/*
+PUBLIC void timer1_Polling_Callback(uint32 u32Device, uint32 u32ItemBitmap){
+	static uint8_t timeCount=0;
+	uint8 sensor_Number=0;
+	char outStr[8]={0};
+	uint8_t y=0,x=0;
+	static uint8_t z=0;
+	timeCount++;
+	//DBG_vPrintf(1, "T1 %d \r\n", timeCount);
+
+	if(timeCount==5){
+		//DBG_vPrintf(1, "T5 %d \r\n", timeCount);
+		y=check_HaveData(&sensorList[0]);
+		DBG_vPrintf(1, "check_HaveData %x\r\n", y);
+		if(check_HaveData(&sensorList[0])!= 0xFF){    //check list empty?
+			if(getSensorCMD(outStr)!=0xFF){
+				printCmd(outStr,8);
+			}
+		DBG_vPrintf(1, "send CMD\r\n");
+
+		}else{
+			DBG_vPrintf(1, "vAHI_Timer1Disable\r\n");
+			vAHI_TimerDisable(E_AHI_TIMER_1);
+		}
+	}
+
+	if(timeCount==7){
+		sensor_Number=getSensorNumber();
+		DBG_vPrintf(1, "getSensorNumber %d \r\n",sensor_Number);
+		sensor_RF_Packet_len=14;
+		if(sensor_Number!=0xFF){
+			if(0){
+			//if(OldsensorData_Count[sensor_Number].oldIndex==sensorList[sensor_Number].dataHeaderIndex){     //for log
+				sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+				sensor_RF_Packet[Time_POS]=0x00;   //log data
+				sensor_RF_Packet[Address_POS]=sensorList[sensor_Number].info.sensorAddress;
+				sensor_RF_Packet[Type_POS]=sensorList[sensor_Number].info.sensorType;
+				sensor_RF_Packet[DataSeQ_POS]=0xff;
+				if(rF_Log_Count==0){
+					rF_Log_Count=sensorList[sensor_Number].dataHeaderIndex-sensorList[sensor_Number].dataTailIndex+1;
+				}
+				for(x=rF_Log_Count;x<sensorList[sensor_Number].dataHeaderIndex;x++){
+					memcpy(sensor_RF_Packet+sensor_RF_Packet_len+rF_Log_len, &x,1);   //seq number
+					memcpy(sensor_RF_Packet+sensor_RF_Packet_len+rF_Log_len+1, &sensorList[sensor_Number].sensorDataNum[x].sensorData[3],sensorList[sensor_Number].sensorDataNum[x].sensorData[2]);
+					rF_Log_len=rF_Log_len+sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[2]+1;   //catch data len
+			    }
+				sensor_RF_Packet[Length_POS]=rF_Log_len;
+
+				if (gConfigData.settings.targetAddr == 0xFFFF){
+					WUART_vTx(0xFFFF, sensor_RF_Packet_len+rF_Log_len, sensor_RF_Packet);
+				}else{
+					uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+					//WUART_vTxAck(targetAddr, u8CmdData, au8CmdData);
+				}
+				DBG_vPrintf(1, "vAHI_Timer1Disable\r\n");
+				vAHI_TimerDisable(E_AHI_TIMER_1);
+			}else{   //for immediate
+				sensor_RF_Packet[SEQ_POS] = WUART_u8MsgSeqTxNew();
+				//sensor_RF_Packet[SEQ_POS]=z++;
+				sensor_RF_Packet[Time_POS]=0x01;   //immediate data
+				sensor_RF_Packet[Address_POS]=sensorList[sensor_Number].info.sensorAddress;
+				sensor_RF_Packet[Type_POS]=sensorList[sensor_Number].info.sensorType;
+				sensor_RF_Packet[DataSeQ_POS]=sensorList[sensor_Number].dataHeaderIndex;
+				sensor_RF_Packet[Length_POS]=sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[2];
+
+				DBG_vPrintf(WUART_TRACE, "\r\nWUART RF listNum %d\r\n",sensor_Number);
+				for(y=0;y<7;y++){
+					DBG_vPrintf(1, "%x", sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[y]);
+				}
+
+				memcpy(sensor_RF_Packet+sensor_RF_Packet_len, &sensorList[sensor_Number].sensorDataNum[sensorList[sensor_Number].dataTailIndex].sensorData[3],sensor_RF_Packet[Length_POS]);
+				sensorList[sensor_Number].dataTailIndex++;  //test commed
+				if(sensorList[sensor_Number].dataTailIndex > MaxSensorNumber){
+					sensorList[sensor_Number].dataTailIndex=0;
+				}
+				sensor_RF_Packet_len=sensor_RF_Packet_len+sensor_RF_Packet[Length_POS];
+				//rF_Immediate_Count++;
+				if (gConfigData.settings.targetAddr == 0xFFFF){
+					WUART_vTx(0xFFFF, sensor_RF_Packet_len, sensor_RF_Packet);
+					DBG_vPrintf(1, "SendRF \r\n");
+					for(y=0;y<sensor_RF_Packet_len;y++){
+						DBG_vPrintf(1, "%02x", sensor_RF_Packet[y]);
+					}
+				}else{
+					uint64 targetAddr = (uint16 *)gConfigData.settings.targetAddr;
+					//WUART_vTxAck(targetAddr, u8CmdData, au8CmdData);
+				}
+			}
+			//OldsensorData_Count[sensor_Number].oldIndex=sensorList[sensor_Number].dataHeaderIndex;  test commed
+		}
+
+		send_RF_Data_Count=0;
+
+		timeCount=0;
+	}
+}
+*/
+PUBLIC void timer4_Polling_Callback(uint32 u32Device, uint32 u32ItemBitmap){
+
+	timeCount++;
+	uint8_t y=0,x=0;
+	char outStr[8]={0};
+	if(!SendLsCmdData){
+		Timer4NowState=Timer4Run;    //timer State
+	}
+
+	DBG_vPrintf(1, "T4 %d PSW_CMD_flag=%d gCurrentSensorCMDIndex=%d\r\n", timeCount,PSW_CMD_flag,gCurrentSensorCMDIndex);
+
+/*
+	if(PowerUpData){
+		if(PowerUptimeCount==0){
+			sendEvent(evRfLsList_Event);
+		}else if(PowerUptimeCount==2){
+			sendEvent(evRfLsCMD_Event);
+		}else if(PowerUptimeCount==3){
+
+			PowerUptimeCount=0;
+			PowerUpData=FALSE;
+		}
+		PowerUptimeCount++;
+	}
+*/
+	/*
+	if(SendLsCmdData){
+		if(Timer4NowState==Timer4Stop){
+	    		SendLsCmdData=FALSE;
+				DBG_vPrintf(1, "vAHI_Timer4DisableLSCMD\r\n");
+				sendEvent(evRfLs_SendRF_Event);
+				vAHI_TimerDisable(E_AHI_TIMER_4);
+				timeCount=0;
+		}else if(Timer4NowState==Timer4Run){
+			if(timeCount<(sensorList[0].info.LoopTime)){
+	    		SendLsCmdData=FALSE;
+				DBG_vPrintf(1, "vAHI_Timer4LSCMD\r\n");
+				sendEvent(evRfLs_SendRF_Event);
+			}
+
+		}
+	}
+*/
+    if(!PSW_CMD_flag){   //for use Recive PSW CMD no send RS485 CMD   TRUE is have RF PSW
+        if(sensorList[gCurrentSensorCMDIndex].info.Enable!=0){
+    		if(timeCount==sensorList[gCurrentSensorCMDIndex].info.LoopTime){
+    			y=check_HaveData(&sensorList[0]);
+    			DBG_vPrintf(1, "check_HaveData %x\r\n", y);
+    			if(check_HaveData(&sensorList[0])!= 0xFF){    //check list empty?
+    				sensor_mode=EnableMode_c;
+    				DBG_vPrintf(1, "send CMD\r\n");
+    				sendEvent(evFindSensor_ListEvent);
+    				Ready_SendData_flag=TRUE;
+    			}else{
+    				DBG_vPrintf(1, "vAHI_Timer4Disable\r\n");
+    				vAHI_TimerDisable(E_AHI_TIMER_4);
+    				Timer4NowState=Timer4Stop;
+    			}
+    		}
+    		/* check RS485 have data? after sendCMD */
+    		if(Ready_SendData_flag){
+    			DBG_vPrintf(1, "Ready_SendData_flag=%d gCurrentSensorCMDIndex=%d\r\n",Ready_SendData_flag,gCurrentSensorCMDIndex);
+    			if(timeCount==sensorList[gCurrentSensorCMDIndex-1].info.LoopTime+1){
+    				Ready_SendData_flag=FALSE;
+    				timeCount=0;
+    				if(Sensor485State==SendCMD){
+    					Sensor485State=Error;
+    					sendEvent(evRS485No_DataEvent);
+    				}else if(Sensor485State==ReciveData){
+    					sendEvent(evUpdate_DataEvent);
+    				}
+    			}
+    		}
+        }else{
+        	gCurrentSensorCMDIndex++;
+    		if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+    			gCurrentSensorCMDIndex=0;
+    		}
+    		timeCount=0;
+        }
+
+
+    }else{
+    	timeCount=0;  //Restart TimeCount if have RF SETing CMD
+    }
+
+}
+
+uint8_t getSensorCMD(uint8_t *sData){
+	uint8_t result=0xff;
+    uint8_t Temp[50];
+    uint8_t Len=0;
+    uint8_t x=0;
+	while (((sensorList[gCurrentSensorCMDIndex].info.Enable==0))){
+		gCurrentSensorCMDIndex++;
+		if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+			gCurrentSensorCMDIndex=0;
+			break;
+		}
+	}
+
+	if ((sensorList[gCurrentSensorCMDIndex].info.Enable!=0)){
+		DBG_vPrintf(1, "gCurrentSensorCMDIndex %x\r\n", gCurrentSensorCMDIndex);
+		gRXRS485SensorCMDIndex=gCurrentSensorCMDIndex;
+		if(0){
+		//if((sensorList[gCurrentSensorCMDIndex].info.CmdCount>0) && (gTXRS485Sensor_Count<(sensorList[gCurrentSensorCMDIndex].info.CmdCount)-1)){
+			DBG_vPrintf(1, "gTXRS485Sensor_Count T %x\r\n", gTXRS485Sensor_Count);
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+
+			memcpy(Temp,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count++]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+		    Len=strlen(Temp);
+
+			DBG_vPrintf(1, "Len=%d gCurrentSensorCMDIndex=%d\r\n", Len,gCurrentSensorCMDIndex);
+		    calc_crc(Temp,Len);
+		    for(x=0;x<=Len;x+=2){
+				DBG_vPrintf(1, "Temp[%d]=%02x\r\n",x ,Temp[x]);
+		    }
+
+			memcpy(sData,Temp,Len+2);
+
+			//memcpy(sData,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count++]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+
+			RS485CMD_Count_Flag=TRUE;
+			//sendEvent(evFindSensor_CountEvent);
+			return 1;
+		}else{
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+			//memcpy(sData, sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[gTXRS485Sensor_Count].sensorCmd,sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[0].sensorCmdLen);
+			//memcpy(sData,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+
+			Temp[0]=sensorList[gCurrentSensorCMDIndex].info.sensorAddress;
+			memcpy(&Temp[1],SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+
+
+			Len=SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen;
+			Len=Len+1;
+			DBG_vPrintf(1, "Len=%d gCurrentSensorCMDIndex=%d\r\n", Len,gCurrentSensorCMDIndex);
+		    calc_crc(Temp,Len);
+		    for(x=0;x<Len+2;x++){
+				DBG_vPrintf(1, "Temp[%d]=%02x\r\n",x ,Temp[x]);
+		    }
+
+			memcpy(sData,Temp,Len+2);
+
+		    for(x=0;x<Len+2;x++){
+				DBG_vPrintf(1, "sData[%d]=%02x\r\n",x ,sData[x]);
+		    }
+
+			DBG_vPrintf(1, "gTXRS485Sensor_Count F %x\r\n", gTXRS485Sensor_Count);
+			result=gCurrentSensorCMDIndex;
+			gCurrentSensorCMDIndex++;
+			gTXRS485Sensor_Count=0;
+			if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+				gCurrentSensorCMDIndex=0;
+			}
+		}
+
+
+	}else{
+		result=0xFF;
+	}
+
+/*
+	while (((sensorList[gCurrentSensorCMDIndex].info.Enable==0))){
+		gCurrentSensorCMDIndex++;
+		if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+			gCurrentSensorCMDIndex=0;
+			break;
+		}
+	}
+	if ((sensorList[gCurrentSensorCMDIndex].info.Enable!=0)){
+		DBG_vPrintf(1, "gCurrentSensorCMDIndex %x\r\n", gCurrentSensorCMDIndex);
+		gRXRS485SensorCMDIndex=gCurrentSensorCMDIndex;
+		if((sensorList[gCurrentSensorCMDIndex].info.CmdCount>0) && (gTXRS485Sensor_Count<(sensorList[gCurrentSensorCMDIndex].info.CmdCount)-1)){
+			DBG_vPrintf(1, "gTXRS485Sensor_Count T %x\r\n", gTXRS485Sensor_Count);
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+
+			memcpy(sData,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count++]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+
+			RS485CMD_Count_Flag=TRUE;
+			//sendEvent(evFindSensor_CountEvent);
+			return 1;
+		}else{
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+			//memcpy(sData, sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[gTXRS485Sensor_Count].sensorCmd,sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[0].sensorCmdLen);
+			memcpy(sData,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmd,SensorCMD_Table[0].sensorCmdTable_Num[sensorList[gCurrentSensorCMDIndex].info.CMD_Table_number[gTXRS485Sensor_Count]].sensorCmdLen);
+
+			DBG_vPrintf(1, "gTXRS485Sensor_Count F %x\r\n", gTXRS485Sensor_Count);
+			result=gCurrentSensorCMDIndex;
+			gCurrentSensorCMDIndex++;
+			gTXRS485Sensor_Count=0;
+			if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+				gCurrentSensorCMDIndex=0;
+			}
+		}
+
+
+	}else{
+		result=0xFF;
+	}
+
+	*/
+
+/*old code
+	while (((sensorList[gCurrentSensorCMDIndex].info.Enable==0))){
+		gCurrentSensorCMDIndex++;
+		if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+			gCurrentSensorCMDIndex=0;
+			break;
+		}
+	}
+	if ((sensorList[gCurrentSensorCMDIndex].info.Enable!=0)){
+		DBG_vPrintf(1, "gCurrentSensorCMDIndex %x\r\n", gCurrentSensorCMDIndex);
+		gRXRS485SensorCMDIndex=gCurrentSensorCMDIndex;
+		if((sensorList[gCurrentSensorCMDIndex].info.CmdCount>0) && (gTXRS485Sensor_Count<(sensorList[gCurrentSensorCMDIndex].info.CmdCount)-1)){
+			DBG_vPrintf(1, "gTXRS485Sensor_Count T %x\r\n", gTXRS485Sensor_Count);
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+			memcpy(sData, sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[gTXRS485Sensor_Count++].sensorCmd,sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[0].sensorCmdLen);
+
+			RS485CMD_Count_Flag=TRUE;
+			//sendEvent(evFindSensor_CountEvent);
+			return 1;
+		}else{
+			gRXRS485Sensor_Count=gTXRS485Sensor_Count;
+			memcpy(sData, sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[gTXRS485Sensor_Count].sensorCmd,sensorList[gCurrentSensorCMDIndex].info.sensorCmdNum[0].sensorCmdLen);
+			DBG_vPrintf(1, "gTXRS485Sensor_Count F %x\r\n", gTXRS485Sensor_Count);
+			result=gCurrentSensorCMDIndex;
+			gCurrentSensorCMDIndex++;
+			gTXRS485Sensor_Count=0;
+			if (gCurrentSensorCMDIndex>= MaxSensorNumber){
+				gCurrentSensorCMDIndex=0;
+			}
+		}
+
+
+	}else{
+		result=0xFF;
+	}
+	*/
+	return result;
+}
+
+uint8_t getSensorNumber(void){
+	uint8_t result=0xff;
+
+	//DBG_vPrintf(1, "getSNo\r\n");
+
+	while (((sensorList[gCurrentSensorNUMIndex].info.Enable==0))){
+		gCurrentSensorNUMIndex++;
+		//DBG_vPrintf(1, "getSN %d\r\n",gCurrentSensorNUMIndex);
+		if (gCurrentSensorNUMIndex>= MaxSensorNumber){
+			gCurrentSensorNUMIndex=0;
+			break;
+		}
+	}
+	if ((sensorList[gCurrentSensorNUMIndex].info.Enable!=0)){
+	//if ((sensorList[gCurrentSensorNUMIndex].info.Enable!=0) && (sensorList[gCurrentSensorNUMIndex].dataHeaderIndex != sensorList[gCurrentSensorNUMIndex].dataTailIndex)){
+		//DBG_vPrintf(1, "getSN T %d\r\n",gCurrentSensorNUMIndex);
+		result=gCurrentSensorNUMIndex;
+		gCurrentSensorNUMIndex++;
+		if (gCurrentSensorNUMIndex>= MaxSensorNumber){
+			gCurrentSensorNUMIndex=0;
+		}
+	}else{
+		//DBG_vPrintf(1, "getSN F \r\n");
+		result=0xFF;
+	}
+
+	return result;
+}
+
+
+void calc_crc(unsigned char *buf,int len){
+	 unsigned short crc = 0xFFFF;
+	 int i,j;
+	 unsigned char LSB;
+	 for (i = 0; i < len; i++) {
+	  crc ^= buf[i];
+	  for (j = 0; j < 8; j++) {
+	   LSB= crc & 1;
+	   crc = crc >> 1;
+	   if (LSB) {
+	    crc ^= 0xA001;
+	   }
+	  }
+	 }
+	 buf[len]=(crc & 0x00FF);
+	 buf[len+1]=(crc & 0xFF00) >> 8;
+}
+
+void printCmd(uint8 *cmd,uint8 len){
+    uint8 i =0;
+
+	for(i=0;i<len;i++){
+		UART_bPutChar(WUART_sData.u8Uart,  cmd[i]);
+	}
+}
+
+void readEEpromSensor(void){
+	uint8 x=0,y=0,z=0;
+
+	for(x=0;x<10;x++){
+		iAHI_ReadDataFromEEPROMsegment(x+EEpromCMDTable+EEpromAddress,0,&SensorCMD_Table[0].sensorCmdTable_Num[x],64);
+		DBG_vPrintf(1, "SensorCMDTest_Table %d\r\n", x);
+	    DBG_vPrintf(1, "SensorCMD_Table Len=%d\r\n", SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen);
+
+		DBG_vPrintf(1, "SensorCMDTest_Table CMD\r\n");
+
+		for(y=0;y<SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmdLen;y++){
+			DBG_vPrintf(1, "SensorCMDTest_Table.sensorCmdTable_Num[%d].sensorCmd[%d]=%x \r\n",x,y ,SensorCMD_Table[0].sensorCmdTable_Num[x].sensorCmd[y]);
+		}
+	}
+
+	for(x=0;x<MaxSensorNumber;x++){
+		iAHI_ReadDataFromEEPROMsegment(x+EEpromAddress,0,&sensorList[x],64);
+
+		DBG_vPrintf(1, "readEEpromSensor %d\r\n", x);
+
+		DBG_vPrintf(1, "sensorList Count%x\r\n", sensorList[x].info.CmdCount);
+		DBG_vPrintf(1, "sensorList mask%x\r\n", sensorList[x].info.mask);
+		DBG_vPrintf(1, "sensorList Type%x\r\n", sensorList[x].info.sensorType);
+		DBG_vPrintf(1, "sensorList Enable%d\r\n", sensorList[x].info.Enable);
+		DBG_vPrintf(1, "sensorList Address%x\r\n", sensorList[x].info.sensorAddress);
+		DBG_vPrintf(1, "sensorList LoopTemp %d\r\n", sensorList[x].info.LoopTime);
+
+		DBG_vPrintf(1, "sensorList CMD NUM[0] %d\r\n", sensorList[x].info.CMD_Table_number[0]);
+		//DBG_vPrintf(1, "sensorList CMD NUM[1] %d\r\n", sensorList[x].info.CMD_Table_number[1]);
+		//DBG_vPrintf(1, "sensorList CMD NUM[2] %d\r\n", sensorList[x].info.CMD_Table_number[2]);
+
+		/*
+		for(z=0;z<sensorList[x].info.CmdCount;z++){
+			for(y=0;y<8;y++){
+				DBG_vPrintf(1, "%x", sensorList[x].info.sensorCmdNum[z].sensorCmd[y]);
+			}
+		}
+		*/
+		/*
+		for(z=0;z<sensorList[x].info.CmdCount;z++){
+			for(y=0;y<8;y++){
+				DBG_vPrintf(1, "%d", sensorList[x].info.CMD_Table_number[z]);
+			}
+		}
+		*/
+
+
+	}
+}
+

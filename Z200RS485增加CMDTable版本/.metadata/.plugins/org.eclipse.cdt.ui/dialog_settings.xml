@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<section name="Workbench">
+	<item value="Default C source template" key="LastUsedSourceTemplate"/>
+	<item value="Default C header template" key="LastUsedHeaderTemplate"/>
+	<section name="completion_proposal_size">
+	</section>
+	<section name="PDOMSearchPage">
+		<item value="227191" key="searchFlags"/>
+		<item value="true" key="caseSensitive"/>
+		<list key="previousPatterns">
+			<item value="processPAIR"/>
+			<item value="SensorEECMD_Table"/>
+			<item value="SensorEECMDTable_t"/>
+			<item value="Timer0_Watchdog_flag"/>
+			<item value="Timer4_Watchdog_flag"/>
+			<item value="EEGroup"/>
+			<item value="Debug"/>
+			<item value="Eventhandle"/>
+			<item value="evCMDR_Event"/>
+			<item value="processCMDR"/>
+			<item value="sendEvent"/>
+			<item value="evRfLsCMD2_Event"/>
+			<item value="processPsW"/>
+			<item value="Timer_Debug"/>
+			<item value="processRfEnableLoop"/>
+			<item value="FifoTail"/>
+			<item value="FifoHead"/>
+			<item value="processCMD1"/>
+			<item value="E_AHI_TIMER_0"/>
+			<item value="processDLIS"/>
+			<item value="processCMD2"/>
+			<item value="processXCMD"/>
+			<item value="processXLIS"/>
+			<item value="processlist"/>
+			<item value="LoopTime"/>
+			<item value="processSlis"/>
+			<item value="evFifoCheck_Event"/>
+			<item value="evCheckCount_Event"/>
+			<item value="parseCommand"/>
+			<item value="Temp"/>
+			<item value="calc_crc"/>
+			<item value="gCurrentSensorNUMIndex"/>
+			<item value="gCurrentSensorCMDIndex"/>
+			<item value="info"/>
+			<item value="E_AHI_TIMER_3"/>
+			<item value="u16Address"/>
+			<item value="sData"/>
+			<item value="evRfLsCMD1_Event"/>
+			<item value="gRXRS485SensorCMDIndex"/>
+			<item value="gRFRS485_Count"/>
+			<item value="sensorDataLen"/>
+			<item value="evFindSensor_CountEvent"/>
+			<item value="gRXRS485Sensor_Count"/>
+			<item value="processRfDELCMD"/>
+			<item value="processRfDELList"/>
+			<item value="printMsg"/>
+			<item value="StarlsList_Number"/>
+			<item value="processRfLsList"/>
+			<item value="CmdCount"/>
+			<item value="processSCMD"/>
+			<item value="ED_vDcfmScanActive"/>
+			<item value="verbose"/>
+			<item value="LED2pin"/>
+			<item value="LED2On"/>
+			<item value="LED1On"/>
+			<item value="PSW_CMD_flag"/>
+			<item value="evPolling_EnableEvent"/>
+			<item value="MaxValueNumber"/>
+			<item value="sprintf"/>
+			<item value="WUART_vRxQ"/>
+			<item value="NACK"/>
+			<item value="convertASCII2HexByte"/>
+			<item value="gWorkingMode"/>
+			<item value="dtOne2OneMaster"/>
+			<item value="KEY0pin"/>
+			<item value="evRfLsList_Event"/>
+			<item value="targetAddr"/>
+			<item value="TARGET_POS"/>
+			<item value="Sensor485State"/>
+			<item value="No485Data"/>
+			<item value="evFindSensor_ListEvent"/>
+			<item value="onetooneSlave_Flag"/>
+			<item value="vAHI_SwReset"/>
+			<item value="RS485CMD_Count_Timer_Flag"/>
+			<item value="RS485CMD_Count"/>
+			<item value="RS485CMD_Count_Flag"/>
+			<item value="EEpromCMDTable"/>
+			<item value="u16AHI_InitialiseEEP"/>
+			<item value="LsRFlen"/>
+			<item value="evRfLs_SendRF_Event"/>
+			<item value="MaxSensorNumber"/>
+			<item value="SendLsCmdData"/>
+			<item value="evRfLsCMD_Event"/>
+			<item value="check_HaveData"/>
+			<item value="CMD_Table_number"/>
+			<item value="sensorDataNum"/>
+			<item value="gTXRS485Sensor_Count"/>
+			<item value="totalSegments"/>
+			<item value="EEPROMSegmentDataLength"/>
+			<item value="processRfCMDTable"/>
+			<item value="SensorCMD_Table"/>
+			<item value="SensorCMDTable_t"/>
+			<item value="gCurrentSensor_Count"/>
+			<item value="gRxdelay_count"/>
+			<item value="gWaitUARTPacket"/>
+			<item value="DEOn"/>
+			<item value="REOn"/>
+			<item value="CRD_vMlmeDcfmInd_Master"/>
+			<item value="ED_vReqActiveScan"/>
+			<item value="gKey1Pressed"/>
+			<item value="processRfEnable"/>
+			<item value="sensor_mode"/>
+			<item value="evRS485No_DataEvent"/>
+			<item value="E_AHI_TIMER_4"/>
+			<item value="sensor_RF_Packet_len"/>
+			<item value="au8CmdData"/>
+			<item value="dataHeaderIndex"/>
+			<item value="processRfADD"/>
+			<item value="mask"/>
+			<item value="processRfDisableLoop"/>
+			<item value="processRfLsCMD"/>
+			<item value="sensor_RF_Packet"/>
+			<item value="sensorListTest"/>
+			<item value="ReciveData"/>
+			<item value="timer2_Polling_Callback"/>
+			<item value="REOff"/>
+			<item value="DEOff"/>
+			<item value="gTurn485ReceiveMode"/>
+			<item value="DEpin"/>
+			<item value="RTSpin"/>
+			<item value="CTSpin"/>
+			<item value="REpin"/>
+			<item value="evUpdate_DataEvent"/>
+			<item value="Enable"/>
+			<item value="timer4_SendRF_Callback"/>
+			<item value="timer1_SensorCMD_Callback"/>
+			<item value="vAHI_Timer1RegisterCallback"/>
+			<item value="processSensorE"/>
+			<item value="timer1_Polling_Callback"/>
+			<item value="E_AHI_TIMER_2"/>
+			<item value="processRfLoopTime"/>
+			<item value="SensorLog_t"/>
+			<item value="oldIndex"/>
+			<item value="processRfDisable"/>
+			<item value="wmPairingMode_c"/>
+			<item value="dtOne2OneSlave"/>
+			<item value="deviceType"/>
+			<item value="sensorData"/>
+			<item value="sensorList"/>
+			<item value="getSensorNumber"/>
+			<item value="sensor_Number"/>
+			<item value="send_RF_Data_Count"/>
+			<item value="PswCmdData"/>
+			<item value="getSensorCMD"/>
+			<item value="Restorekey0_timer1Callback"/>
+			<item value="timer0Callback"/>
+			<item value="timer1_TSensorCMD_Callback"/>
+			<item value="DBG_vPrintf"/>
+			<item value="vAHI_TimerStartRepeat"/>
+			<item value="Key_timer2Callback"/>
+			<item value="eachsegment"/>
+			<item value="EEPROMinfo"/>
+			<item value="ResetModeNoPairkey"/>
+			<item value="ResetLEDCounter"/>
+			<item value="dataLEDDuration"/>
+			<item value="dataLEDCounter"/>
+			<item value="gCheckRXTimeout"/>
+			<item value="Gpio_Degug"/>
+			<item value="Count"/>
+			<item value="gKey0DebounceCount"/>
+			<item value="WUART_vTick"/>
+			<item value="timer1Callback"/>
+			<item value="ISR_handleSysCtrl"/>
+			<item value="gKey0Pressed"/>
+			<item value="E_AHI_TIMER_1"/>
+		</list>
+	</section>
+	<section name="org.eclipse.cdt.internal.ui.typehierarchy.OpenTypeInHierarchyActionSettings">
+		<item value="true" key="show_structs"/>
+		<item value="true" key="show_lowlevel"/>
+		<item value="false" key="show_macros"/>
+		<item value="false" key="show_variables"/>
+		<item value="508" key="width"/>
+		<item value="false" key="show_functions"/>
+		<item value="true" key="show_enums"/>
+		<item value="825" key="height"/>
+		<item value="true" key="show_classes"/>
+		<item value="true" key="show_typedefs"/>
+		<item value="false" key="show_namespaces"/>
+		<item value="true" key="show_unions"/>
+		<item value="false" key="show_enumerators"/>
+		<item value="25" key="y"/>
+		<item value="2626" key="x"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.text.hover.CMacroExpansionExploration.internal">
+		<item value="448" key="size.width"/>
+		<item value="180" key="size.height"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.OPEN_ACTION_SELECTION_DIALOG_SECTION">
+		<item value="462" key="DIALOG_WIDTH"/>
+		<item value="158" key="DIALOG_Y_ORIGIN"/>
+		<item value="738" key="DIALOG_X_ORIGIN"/>
+		<item value="550" key="DIALOG_HEIGHT"/>
+		<item value="1|Microsoft JhengHei UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Microsoft JhengHei UI" key="DIALOG_FONT_NAME"/>
+	</section>
+	<section name="org.eclipse.cdt.ui.text.hover.CMacroExpansionExploration">
+	</section>
+</section>
